@@ -18,16 +18,36 @@ ROOT = (
 
 
 # ============================================================
-# APPLICATION SETTINGS
+# SETTINGS
 # ============================================================
 
 class Settings(BaseSettings):
+
+    # --------------------------------------------------------
+    # PostgreSQL
+    # --------------------------------------------------------
 
     db_host: str
     db_port: int = 5432
     db_name: str
     db_user: str
     db_password: str
+
+    # --------------------------------------------------------
+    # Google Sheets
+    # --------------------------------------------------------
+
+    google_service_account_file: str | None = None
+
+    # --------------------------------------------------------
+    # OpenAI - later phase
+    # --------------------------------------------------------
+
+    openai_api_key: str | None = None
+
+    # --------------------------------------------------------
+    # Environment configuration
+    # --------------------------------------------------------
 
     model_config = SettingsConfigDict(
         env_file=ROOT / ".env",
@@ -38,8 +58,6 @@ class Settings(BaseSettings):
 
 # ============================================================
 # SETTINGS INSTANCE
-#
-# database.py imports THIS object.
 # ============================================================
 
 settings = Settings()

@@ -1,3 +1,4 @@
+import logging
 from ..ingestion.hasher import (
     add_record_identity,
 )
