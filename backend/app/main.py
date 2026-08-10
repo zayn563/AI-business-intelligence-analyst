@@ -1,3 +1,7 @@
+from .routes.intelligence import (
+    router as intelligence_router,
+)
+
 from fastapi import (
     FastAPI,
     HTTPException,
@@ -96,6 +100,10 @@ app = FastAPI(
         "business intelligence services."
     ),
     version="0.4.0",
+)
+
+app.include_router(
+    intelligence_router
 )
 
 
