@@ -1,3 +1,13 @@
+
+from datetime import date
+
+from ..intelligence.target_analysis import (
+    analyze_targets,
+)
+
+from ..intelligence.promotion_analysis import (
+    analyze_promotions,
+)
 from fastapi import (
     APIRouter,
     HTTPException,
@@ -80,6 +90,72 @@ def detect_business_changes(
             run_business_intelligence(
                 request
             )
+        )
+
+    except Exception as error:
+
+        raise HTTPException(
+            status_code=500,
+            detail=error_detail(
+                error
+            ),
+        ) from error
+
+    # ============================================================
+# TARGET ACHIEVEMENT
+# ============================================================
+
+@router.get("/targets")
+def target_achievement(
+    month_start: date | None = None,
+):
+
+    try:
+
+        return analyze_targets(
+            month_start=
+                month_start
+        )
+
+    except Exception as error:
+
+        raise HTTPException(
+            status_code=500,
+            detail=error_detail(
+                error
+            ),
+        ) from error
+
+
+# ============================================================
+# PROMOTION EFFECTIVENESS
+# ============================================================
+
+@router.get("/promotions")
+def promotion_effectiveness(
+    start_date: date,
+    end_date: date,
+):
+
+    try:
+
+        if (
+            start_date
+            >
+            end_date
+        ):
+
+            raise ValueError(
+                "start_date cannot be "
+                "after end_date."
+            )
+
+        return analyze_promotions(
+            start_date=
+                start_date,
+
+            end_date=
+                end_date,
         )
 
     except Exception as error:
