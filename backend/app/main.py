@@ -22,6 +22,11 @@ from .schemas import (
     SemanticMappingRequest,
 )
 
+from .services.orchestration_service import (
+    get_pipeline_status,
+    refresh_active_sources,
+)
+
 from .services.refresh_service import (
     refresh_source,
 )
@@ -52,16 +57,45 @@ from .sources.registry import (
 
 
 # ============================================================
+# ERROR DETAIL
+# ============================================================
+
+def error_detail(
+    error: Exception,
+) -> str:
+
+    message = str(
+        error
+    ).strip()
+
+    if not message:
+
+        message = repr(
+            error
+        )
+
+    return (
+        f"{type(error).__name__}: "
+        f"{message}"
+    )
+
+
+# ============================================================
 # APPLICATION
 # ============================================================
 
 app = FastAPI(
-    title="AI Business Intelligence Analyst API",
-    description=(
-        "Deterministic analytics engine with "
-        "semantic schema mapping and live data refresh."
+    title=(
+        "AI Business Intelligence "
+        "Analyst API"
     ),
-    version="0.3.0",
+    description=(
+        "Deterministic analytics, "
+        "semantic source mapping, "
+        "live data refresh and "
+        "business intelligence services."
+    ),
+    version="0.4.0",
 )
 
 
@@ -77,7 +111,7 @@ def root():
             "AI Business Intelligence Analyst",
 
         "version":
-            "0.3.0",
+            "0.4.0",
 
         "status":
             "running",
@@ -92,21 +126,83 @@ def root():
 def health():
 
     try:
-        db_status = (
+
+        database = (
             test_database_connection()
         )
 
         return {
-            "api": "healthy",
-            "database": db_status,
+            "api":
+                "healthy",
+
+            "database":
+                database,
         }
 
     except Exception as error:
 
         raise HTTPException(
             status_code=500,
-            detail=str(error),
+            detail=error_detail(
+                error
+            ),
+        ) from error
+
+
+# ============================================================
+# PIPELINE STATUS
+#
+# This is intended for:
+# - frontend
+# - monitoring
+# - n8n
+# ============================================================
+
+@app.get("/pipeline/status")
+def pipeline_status():
+
+    try:
+
+        return (
+            get_pipeline_status()
         )
+
+    except Exception as error:
+
+        raise HTTPException(
+            status_code=500,
+            detail=error_detail(
+                error
+            ),
+        ) from error
+
+
+# ============================================================
+# REFRESH ALL ACTIVE SOURCES
+#
+# n8n will call THIS endpoint.
+#
+# It intentionally does not contain
+# a hard-coded source ID.
+# ============================================================
+
+@app.post("/pipeline/refresh")
+def pipeline_refresh():
+
+    try:
+
+        return (
+            refresh_active_sources()
+        )
+
+    except Exception as error:
+
+        raise HTTPException(
+            status_code=500,
+            detail=error_detail(
+                error
+            ),
+        ) from error
 
 
 # ============================================================
@@ -125,7 +221,8 @@ def metadata():
                     SELECT
                         MIN(date_id),
                         MAX(date_id)
-                    FROM analytics.fact_sales_daily;
+                    FROM
+                        analytics.fact_sales_daily;
                     """
                 )
             )
@@ -136,9 +233,12 @@ def metadata():
             connection.execute(
                 text(
                     """
-                    SELECT DISTINCT region
-                    FROM analytics.dim_store
-                    ORDER BY region;
+                    SELECT DISTINCT
+                        region
+                    FROM
+                        analytics.dim_store
+                    ORDER BY
+                        region;
                     """
                 )
             )
@@ -150,9 +250,12 @@ def metadata():
             connection.execute(
                 text(
                     """
-                    SELECT DISTINCT category
-                    FROM analytics.dim_product
-                    ORDER BY category;
+                    SELECT DISTINCT
+                        category
+                    FROM
+                        analytics.dim_product
+                    ORDER BY
+                        category;
                     """
                 )
             )
@@ -164,9 +267,12 @@ def metadata():
             connection.execute(
                 text(
                     """
-                    SELECT DISTINCT channel
-                    FROM analytics.dim_store
-                    ORDER BY channel;
+                    SELECT DISTINCT
+                        channel
+                    FROM
+                        analytics.dim_store
+                    ORDER BY
+                        channel;
                     """
                 )
             )
@@ -176,8 +282,11 @@ def metadata():
 
     return {
         "date_coverage": {
-            "start": min_date,
-            "end": max_date,
+            "start":
+                min_date,
+
+            "end":
+                max_date,
         },
 
         "supported_metrics":
@@ -191,9 +300,14 @@ def metadata():
             ),
 
         "available_values": {
-            "regions": regions,
-            "categories": categories,
-            "channels": channels,
+            "regions":
+                regions,
+
+            "categories":
+                categories,
+
+            "channels":
+                channels,
         },
     }
 
@@ -208,16 +322,21 @@ def analyze(
 ):
 
     try:
-        return run_sales_analysis(
-            request
+
+        return (
+            run_sales_analysis(
+                request
+            )
         )
 
     except Exception as error:
 
         raise HTTPException(
             status_code=500,
-            detail=str(error),
-        )
+            detail=error_detail(
+                error
+            ),
+        ) from error
 
 
 # ============================================================
@@ -227,7 +346,9 @@ def analyze(
 @app.get("/semantic/schema")
 def semantic_schema():
 
-    return canonical_schema_payload()
+    return (
+        canonical_schema_payload()
+    )
 
 
 # ============================================================
@@ -241,19 +362,27 @@ def semantic_profile(
 
     try:
 
-        return profile_dataset(
-            columns=request.columns,
-            sample_rows=request.sample_rows,
-            max_sample_values=
-                request.max_sample_values,
+        return (
+            profile_dataset(
+                columns=
+                    request.columns,
+
+                sample_rows=
+                    request.sample_rows,
+
+                max_sample_values=
+                    request.max_sample_values,
+            )
         )
 
     except Exception as error:
 
         raise HTTPException(
             status_code=500,
-            detail=str(error),
-        )
+            detail=error_detail(
+                error
+            ),
+        ) from error
 
 
 # ============================================================
@@ -267,11 +396,17 @@ def semantic_map(
 
     try:
 
-        profile = profile_dataset(
-            columns=request.columns,
-            sample_rows=request.sample_rows,
-            max_sample_values=
-                request.max_sample_values,
+        profile = (
+            profile_dataset(
+                columns=
+                    request.columns,
+
+                sample_rows=
+                    request.sample_rows,
+
+                max_sample_values=
+                    request.max_sample_values,
+            )
         )
 
         mapping = (
@@ -281,20 +416,25 @@ def semantic_map(
         )
 
         return {
-            "profile": profile,
-            "mapping": mapping,
+            "profile":
+                profile,
+
+            "mapping":
+                mapping,
         }
 
     except Exception as error:
 
         raise HTTPException(
             status_code=500,
-            detail=str(error),
-        )
+            detail=error_detail(
+                error
+            ),
+        ) from error
 
 
 # ============================================================
-# CREATE DATA SOURCE
+# CREATE SOURCE
 # ============================================================
 
 @app.post("/sources")
@@ -304,9 +444,11 @@ def create_data_source(
 
     try:
 
-        return create_source(
-            request.model_dump(
-                mode="json"
+        return (
+            create_source(
+                request.model_dump(
+                    mode="json"
+                )
             )
         )
 
@@ -314,22 +456,26 @@ def create_data_source(
 
         raise HTTPException(
             status_code=400,
-            detail=str(error),
-        )
+            detail=error_detail(
+                error
+            ),
+        ) from error
 
 
 # ============================================================
-# LIST DATA SOURCES
+# LIST SOURCES
 # ============================================================
 
 @app.get("/sources")
 def get_data_sources():
 
-    return list_sources()
+    return (
+        list_sources()
+    )
 
 
 # ============================================================
-# GET DATA SOURCE
+# GET SOURCE
 # ============================================================
 
 @app.get("/sources/{source_id}")
@@ -337,22 +483,26 @@ def get_data_source(
     source_id: int,
 ):
 
-    source = get_source(
-        source_id
+    source = (
+        get_source(
+            source_id
+        )
     )
 
     if source is None:
 
         raise HTTPException(
             status_code=404,
-            detail="Data source not found.",
+            detail=(
+                "Data source not found."
+            ),
         )
 
     return source
 
 
 # ============================================================
-# UPDATE DATA SOURCE
+# UPDATE SOURCE
 # ============================================================
 
 @app.patch("/sources/{source_id}")
@@ -361,26 +511,34 @@ def update_data_source(
     request: DataSourceUpdate,
 ):
 
-    source = update_source(
-        source_id,
-        request.model_dump(
-            exclude_none=True,
-            mode="json",
-        ),
+    source = (
+        update_source(
+            source_id,
+
+            request.model_dump(
+                exclude_none=True,
+                mode="json",
+            ),
+        )
     )
 
     if source is None:
 
         raise HTTPException(
             status_code=404,
-            detail="Data source not found.",
+            detail=(
+                "Data source not found."
+            ),
         )
 
     return source
 
 
 # ============================================================
-# REFRESH DATA SOURCE
+# REFRESH ONE SOURCE
+#
+# Kept for debugging/admin operations.
+# n8n should use /pipeline/refresh instead.
 # ============================================================
 
 @app.post("/sources/{source_id}/refresh")
@@ -390,37 +548,47 @@ def refresh_data_source(
 
     try:
 
-        return refresh_source(
-            source_id
+        return (
+            refresh_source(
+                source_id
+            )
         )
 
     except KeyError as error:
 
         raise HTTPException(
             status_code=404,
-            detail=str(error),
-        )
+            detail=error_detail(
+                error
+            ),
+        ) from error
 
     except NotImplementedError as error:
 
         raise HTTPException(
             status_code=501,
-            detail=str(error),
-        )
+            detail=error_detail(
+                error
+            ),
+        ) from error
 
     except ValueError as error:
 
         raise HTTPException(
             status_code=400,
-            detail=str(error),
-        )
+            detail=error_detail(
+                error
+            ),
+        ) from error
 
     except Exception as error:
 
         raise HTTPException(
             status_code=500,
-            detail=str(error),
-        )
+            detail=error_detail(
+                error
+            ),
+        ) from error
 
 
 # ============================================================
@@ -432,17 +600,23 @@ def get_refresh_history(
     source_id: int,
 ):
 
-    source = get_source(
-        source_id
+    source = (
+        get_source(
+            source_id
+        )
     )
 
     if source is None:
 
         raise HTTPException(
             status_code=404,
-            detail="Data source not found.",
+            detail=(
+                "Data source not found."
+            ),
         )
 
-    return list_refresh_runs(
-        source_id
+    return (
+        list_refresh_runs(
+            source_id
+        )
     )
