@@ -1,5 +1,8 @@
 from datetime import date
-from typing import Literal
+from typing import (
+    Any,
+    Literal,
+)
 
 from pydantic import (
     BaseModel,
@@ -20,6 +23,10 @@ AnalysisType = Literal[
 ]
 
 
+# ============================================================
+# SUPPORTED METRICS
+# ============================================================
+
 MetricName = Literal[
     "net_sales",
     "units_sold",
@@ -32,6 +39,10 @@ MetricName = Literal[
     "stockout_rate",
 ]
 
+
+# ============================================================
+# SUPPORTED DIMENSIONS
+# ============================================================
 
 DimensionName = Literal[
     "overall",
@@ -47,7 +58,7 @@ DimensionName = Literal[
 
 
 # ============================================================
-# PARSED INTENT
+# ANALYST INTENT
 # ============================================================
 
 class AnalystIntent(BaseModel):
@@ -72,26 +83,26 @@ class AnalystIntent(BaseModel):
     promotion_end: date | None = None
 
     confidence: float = Field(
-        default=0.5,
+        default=0.50,
         ge=0.0,
         le=1.0,
     )
 
 
 # ============================================================
-# USER REQUEST
+# ASK REQUEST
 # ============================================================
 
 class AnalystAskRequest(BaseModel):
 
     question: str = Field(
-        min_length=3,
-        max_length=2000,
+        min_length=2,
+        max_length=1000,
     )
 
 
 # ============================================================
-# USER RESPONSE
+# ASK RESPONSE
 # ============================================================
 
 class AnalystAskResponse(BaseModel):
@@ -102,16 +113,31 @@ class AnalystAskResponse(BaseModel):
 
     answer: str
 
-    intent: dict
+    intent: AnalystIntent
 
     parser: str
 
-    tool_used: str
+    tool_used: str | None = None
 
-    used_llm: bool
+    # True when Ollama participated in either intent parsing
+    # or response generation.
+    used_llm: bool = False
 
-    evidence: dict
+    # Developer/debug visibility.
+    llm_usage: dict[str, bool] = Field(
+        default_factory=dict
+    )
+
+    # fast_path / local_ai / fallback
+    execution_mode: str = "unknown"
+
+    # Full end-to-end API request latency.
+    response_time_ms: float | None = None
+
+    evidence: Any | None = None
 
     warnings: list[str] = Field(
         default_factory=list
     )
+
+    analysis_id: str | None = None

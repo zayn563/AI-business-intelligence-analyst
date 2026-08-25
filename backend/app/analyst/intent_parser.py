@@ -6,19 +6,23 @@ from datetime import (
     date,
     timedelta,
 )
+from time import monotonic
+
+from ..config import settings
+
+from ..intelligence.snapshot_service import (
+    get_max_sales_date,
+)
 
 from .llm_client import (
-    get_openai_client,
-    get_openai_model,
+    extract_json_text,
+    get_llm_client,
+    get_ollama_model,
     llm_available,
 )
 
 from .models import (
     AnalystIntent,
-)
-
-from ..intelligence.snapshot_service import (
-    get_max_sales_date,
 )
 
 
@@ -27,167 +31,338 @@ from ..intelligence.snapshot_service import (
 # ============================================================
 
 MONTHS = {
-    "january": 1,
-    "february": 2,
-    "march": 3,
-    "april": 4,
-    "may": 5,
-    "june": 6,
-    "july": 7,
-    "august": 8,
-    "september": 9,
-    "october": 10,
-    "november": 11,
-    "december": 12,
+    "january":
+        1,
+
+    "february":
+        2,
+
+    "march":
+        3,
+
+    "april":
+        4,
+
+    "may":
+        5,
+
+    "june":
+        6,
+
+    "july":
+        7,
+
+    "august":
+        8,
+
+    "september":
+        9,
+
+    "october":
+        10,
+
+    "november":
+        11,
+
+    "december":
+        12,
 }
 
+
+# ============================================================
+# REGIONS
+# ============================================================
 
 REGIONS = {
-    "north": "North",
-    "south": "South",
-    "east": "East",
-    "west": "West",
-    "central": "Central",
+    "north":
+        "North",
+
+    "south":
+        "South",
+
+    "east":
+        "East",
+
+    "west":
+        "West",
+
+    "central":
+        "Central",
 }
 
 
 # ============================================================
-# STRUCTURED OUTPUT SCHEMA
+# LOCAL MODEL ALIASES
 # ============================================================
 
-INTENT_SCHEMA = {
-    "type": "object",
-    "additionalProperties": False,
+ANALYSIS_TYPE_ALIASES = {
+    "decline":
+        "diagnostic",
 
-    "properties": {
+    "growth":
+        "diagnostic",
 
-        "analysis_type": {
-            "type": "string",
-            "enum": [
-                "latest_changes",
-                "diagnostic",
-                "targets",
-                "promotions",
-                "unsupported",
-            ],
-        },
+    "driver":
+        "diagnostic",
 
-        "metric": {
-            "type": [
-                "string",
-                "null",
-            ],
-            "enum": [
-                "net_sales",
-                "units_sold",
-                "transactions",
-                "gross_profit",
-                "margin_pct",
-                "avg_selling_price",
-                "discount_pct",
-                "cost_per_unit",
-                "stockout_rate",
-                None,
-            ],
-        },
+    "drivers":
+        "diagnostic",
 
-        "dimension": {
-            "type": [
-                "string",
-                "null",
-            ],
-            "enum": [
-                "overall",
-                "region",
-                "city",
-                "channel",
-                "category",
-                "brand",
-                "product",
-                "store",
-                "salesperson",
-                None,
-            ],
-        },
+    "diagnosis":
+        "diagnostic",
 
-        "dimension_value": {
-            "type": [
-                "string",
-                "null",
-            ],
-        },
+    "why":
+        "diagnostic",
 
-        "current_start": {
-            "type": [
-                "string",
-                "null",
-            ],
-        },
+    "target":
+        "targets",
 
-        "current_end": {
-            "type": [
-                "string",
-                "null",
-            ],
-        },
+    "target_analysis":
+        "targets",
 
-        "comparison_start": {
-            "type": [
-                "string",
-                "null",
-            ],
-        },
+    "target_performance":
+        "targets",
 
-        "comparison_end": {
-            "type": [
-                "string",
-                "null",
-            ],
-        },
+    "promotion":
+        "promotions",
 
-        "target_month": {
-            "type": [
-                "string",
-                "null",
-            ],
-        },
+    "promotion_analysis":
+        "promotions",
 
-        "promotion_start": {
-            "type": [
-                "string",
-                "null",
-            ],
-        },
+    "campaign":
+        "promotions",
 
-        "promotion_end": {
-            "type": [
-                "string",
-                "null",
-            ],
-        },
+    "changes":
+        "latest_changes",
 
-        "confidence": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 1,
-        },
-    },
+    "business_changes":
+        "latest_changes",
 
-    "required": [
-        "analysis_type",
-        "metric",
-        "dimension",
-        "dimension_value",
-        "current_start",
-        "current_end",
-        "comparison_start",
-        "comparison_end",
-        "target_month",
-        "promotion_start",
-        "promotion_end",
-        "confidence",
-    ],
+    "latest":
+        "latest_changes",
 }
+
+
+METRIC_ALIASES = {
+    "sales":
+        "net_sales",
+
+    "revenue":
+        "net_sales",
+
+    "net sales":
+        "net_sales",
+
+    "net_sales":
+        "net_sales",
+
+    "units":
+        "units_sold",
+
+    "unit":
+        "units_sold",
+
+    "volume":
+        "units_sold",
+
+    "units_sold":
+        "units_sold",
+
+    "transaction":
+        "transactions",
+
+    "transactions":
+        "transactions",
+
+    "profit":
+        "gross_profit",
+
+    "gross profit":
+        "gross_profit",
+
+    "gross_profit":
+        "gross_profit",
+
+    "margin":
+        "margin_pct",
+
+    "gross margin":
+        "margin_pct",
+
+    "margin_pct":
+        "margin_pct",
+
+    "price":
+        "avg_selling_price",
+
+    "asp":
+        "avg_selling_price",
+
+    "average selling price":
+        "avg_selling_price",
+
+    "avg_selling_price":
+        "avg_selling_price",
+
+    "discount":
+        "discount_pct",
+
+    "discount rate":
+        "discount_pct",
+
+    "discount_pct":
+        "discount_pct",
+
+    "cost":
+        "cost_per_unit",
+
+    "cost per unit":
+        "cost_per_unit",
+
+    "cost_per_unit":
+        "cost_per_unit",
+
+    "stockout":
+        "stockout_rate",
+
+    "stock out":
+        "stockout_rate",
+
+    "stock-out":
+        "stockout_rate",
+
+    "availability":
+        "stockout_rate",
+
+    "stockout_rate":
+        "stockout_rate",
+}
+
+
+DIMENSION_ALIASES = {
+    "region":
+        "region",
+
+    "regions":
+        "region",
+
+    "city":
+        "city",
+
+    "cities":
+        "city",
+
+    "channel":
+        "channel",
+
+    "channels":
+        "channel",
+
+    "category":
+        "category",
+
+    "categories":
+        "category",
+
+    "brand":
+        "brand",
+
+    "brands":
+        "brand",
+
+    "product":
+        "product",
+
+    "products":
+        "product",
+
+    "store":
+        "store",
+
+    "stores":
+        "store",
+
+    "outlet":
+        "store",
+
+    "outlets":
+        "store",
+
+    "salesperson":
+        "salesperson",
+
+    "salespeople":
+        "salesperson",
+
+    "overall":
+        "overall",
+}
+
+
+# ============================================================
+# LATEST DATA DATE CACHE
+# ============================================================
+
+_LATEST_DATE_CACHE = {
+    "value":
+        None,
+
+    "expires_at":
+        0.0,
+}
+
+
+LATEST_DATE_CACHE_SECONDS = 60.0
+
+
+def get_latest_data_date() -> date:
+
+    now = (
+        monotonic()
+    )
+
+    cached_value = (
+        _LATEST_DATE_CACHE[
+            "value"
+        ]
+    )
+
+    cached_until = (
+        _LATEST_DATE_CACHE[
+            "expires_at"
+        ]
+    )
+
+    if (
+        cached_value is not None
+        and
+        now
+        <
+        cached_until
+    ):
+
+        return cached_value
+
+
+    latest_date = (
+        get_max_sales_date()
+    )
+
+    _LATEST_DATE_CACHE[
+        "value"
+    ] = (
+        latest_date
+    )
+
+    _LATEST_DATE_CACHE[
+        "expires_at"
+    ] = (
+        now
+        +
+        LATEST_DATE_CACHE_SECONDS
+    )
+
+    return latest_date
 
 
 # ============================================================
@@ -250,6 +425,44 @@ def previous_month_period(
     )
 
 
+def explicit_year(
+    question: str,
+) -> int | None:
+
+    match = re.search(
+        r"\b(20\d{2})\b",
+        question,
+    )
+
+    if not match:
+
+        return None
+
+    return int(
+        match.group(1)
+    )
+
+
+def default_year_for_question(
+    question: str,
+) -> int:
+
+    year = (
+        explicit_year(
+            question
+        )
+    )
+
+    if year is not None:
+
+        return year
+
+    return (
+        get_latest_data_date()
+        .year
+    )
+
+
 # ============================================================
 # MONTH EXTRACTION
 # ============================================================
@@ -303,8 +516,11 @@ def extract_months(
             )
 
     found.sort(
-        key=lambda item:
-            item[0]
+        key=
+            lambda item:
+                item[
+                    0
+                ]
     )
 
     return [
@@ -312,7 +528,11 @@ def extract_months(
             year,
             month,
         )
-        for _position, year, month
+        for (
+            _position,
+            year,
+            month,
+        )
         in found
     ]
 
@@ -333,7 +553,10 @@ def detect_metric(
         "margin"
         in q
     ):
-        return "margin_pct"
+
+        return (
+            "margin_pct"
+        )
 
     if (
         "stockout"
@@ -342,16 +565,25 @@ def detect_metric(
         "stock-out"
         in q
         or
+        "stock out"
+        in q
+        or
         "availability"
         in q
     ):
-        return "stockout_rate"
+
+        return (
+            "stockout_rate"
+        )
 
     if (
         "discount"
         in q
     ):
-        return "discount_pct"
+
+        return (
+            "discount_pct"
+        )
 
     if (
         "price"
@@ -363,7 +595,10 @@ def detect_metric(
         "selling price"
         in q
     ):
-        return "avg_selling_price"
+
+        return (
+            "avg_selling_price"
+        )
 
     if (
         "unit"
@@ -372,19 +607,39 @@ def detect_metric(
         "volume"
         in q
     ):
-        return "units_sold"
+
+        return (
+            "units_sold"
+        )
 
     if (
         "transaction"
         in q
     ):
-        return "transactions"
 
-    return "net_sales"
+        return (
+            "transactions"
+        )
+
+    if (
+        "gross profit"
+        in q
+        or
+        "profit"
+        in q
+    ):
+
+        return (
+            "gross_profit"
+        )
+
+    return (
+        "net_sales"
+    )
 
 
 # ============================================================
-# DIMENSION EXTRACTION
+# REGION EXTRACTION
 # ============================================================
 
 def detect_region(
@@ -399,11 +654,9 @@ def detect_region(
         REGIONS.items()
     ):
 
-        if (
-            re.search(
-                rf"\b{key}\b",
-                q,
-            )
+        if re.search(
+            rf"\b{key}\b",
+            q,
         ):
 
             return value
@@ -412,26 +665,15 @@ def detect_region(
 
 
 # ============================================================
-# FALLBACK PARSER
+# DETERMINISTIC PARSER
 # ============================================================
 
 def fallback_parse(
     question: str,
 ) -> AnalystIntent:
 
-    latest_date = (
-        get_max_sales_date()
-    )
-
     q = (
         question.lower()
-    )
-
-    months = (
-        extract_months(
-            question,
-            latest_date.year,
-        )
     )
 
     region = (
@@ -446,6 +688,7 @@ def fallback_parse(
         )
     )
 
+
     # --------------------------------------------------------
     # TARGETS
     # --------------------------------------------------------
@@ -454,20 +697,39 @@ def fallback_parse(
         "target"
         in q
         or
-        "plan"
-        in q
-        or
         "quota"
         in q
+        or
+        "against plan"
+        in q
     ):
+
+        default_year = (
+            default_year_for_question(
+                question
+            )
+        )
+
+        months = (
+            extract_months(
+                question,
+                default_year,
+            )
+        )
 
         if months:
 
             year, month = (
-                months[0]
+                months[
+                    0
+                ]
             )
 
         else:
+
+            latest_date = (
+                get_latest_data_date()
+            )
 
             year = (
                 latest_date.year
@@ -498,8 +760,9 @@ def fallback_parse(
                 ),
 
             confidence=
-                0.85,
+                0.95,
         )
+
 
     # --------------------------------------------------------
     # PROMOTIONS
@@ -516,15 +779,30 @@ def fallback_parse(
         in q
     ):
 
+        default_year = (
+            default_year_for_question(
+                question
+            )
+        )
+
+        months = (
+            extract_months(
+                question,
+                default_year,
+            )
+        )
+
         if months:
 
             year, month = (
-                months[0]
+                months[
+                    0
+                ]
             )
 
             (
-                promo_start,
-                promo_end,
+                promotion_start,
+                promotion_end,
             ) = (
                 month_period(
                     year,
@@ -534,13 +812,17 @@ def fallback_parse(
 
         else:
 
-            promo_start = date(
+            latest_date = (
+                get_latest_data_date()
+            )
+
+            promotion_start = date(
                 latest_date.year,
                 1,
                 1,
             )
 
-            promo_end = (
+            promotion_end = (
                 latest_date
             )
 
@@ -549,17 +831,18 @@ def fallback_parse(
                 "promotions",
 
             promotion_start=
-                promo_start,
+                promotion_start,
 
             promotion_end=
-                promo_end,
+                promotion_end,
 
             confidence=
-                0.85,
+                0.95,
         )
 
+
     # --------------------------------------------------------
-    # LATEST BUSINESS CHANGES
+    # EXECUTIVE / LATEST BUSINESS CHANGES
     # --------------------------------------------------------
 
     latest_phrases = [
@@ -570,14 +853,22 @@ def fallback_parse(
         "most concerning",
         "most concerned",
         "business issues",
+        "important business issues",
         "business performance",
         "how are we doing",
+        "focus on",
+        "priorities",
+        "priority issues",
+        "biggest issues",
     ]
 
     if any(
-        phrase in q
+        phrase
+        in
+        q
         for phrase
-        in latest_phrases
+        in
+        latest_phrases
     ):
 
         return AnalystIntent(
@@ -585,8 +876,9 @@ def fallback_parse(
                 "latest_changes",
 
             confidence=
-                0.80,
+                0.90,
         )
+
 
     # --------------------------------------------------------
     # DIAGNOSTIC
@@ -595,6 +887,7 @@ def fallback_parse(
     diagnostic_terms = [
         "why",
         "driver",
+        "drivers",
         "decline",
         "declined",
         "drop",
@@ -606,25 +899,52 @@ def fallback_parse(
         "growth",
         "grew",
         "deteriorated",
+        "deterioration",
+        "improved",
+        "improvement",
+        "what drove",
+        "what caused",
     ]
 
     if (
         region is not None
         and
         any(
-            term in q
+            term
+            in
+            q
             for term
-            in diagnostic_terms
+            in
+            diagnostic_terms
         )
     ):
+
+        default_year = (
+            default_year_for_question(
+                question
+            )
+        )
+
+        months = (
+            extract_months(
+                question,
+                default_year,
+            )
+        )
 
         if months:
 
             year, month = (
-                months[0]
+                months[
+                    0
+                ]
             )
 
         else:
+
+            latest_date = (
+                get_latest_data_date()
+            )
 
             year = (
                 latest_date.year
@@ -679,11 +999,12 @@ def fallback_parse(
                 comparison_end,
 
             confidence=
-                0.80,
+                0.95,
         )
 
+
     # --------------------------------------------------------
-    # UNSUPPORTED
+    # UNSUPPORTED / AMBIGUOUS
     # --------------------------------------------------------
 
     return AnalystIntent(
@@ -691,76 +1012,307 @@ def fallback_parse(
             "unsupported",
 
         confidence=
-            0.30,
+            0.25,
     )
 
 
 # ============================================================
-# OPENAI PARSER
+# LOCAL MODEL PAYLOAD NORMALIZATION
 # ============================================================
 
-def openai_parse(
+def normalize_ollama_intent_payload(
+    payload: dict,
+) -> dict:
+
+    normalized = dict(
+        payload
+    )
+
+
+    # --------------------------------------------------------
+    # ANALYSIS TYPE
+    # --------------------------------------------------------
+
+    analysis_type = (
+        normalized.get(
+            "analysis_type"
+        )
+    )
+
+    if isinstance(
+        analysis_type,
+        str,
+    ):
+
+        key = (
+            analysis_type
+            .strip()
+            .lower()
+            .replace(
+                "-",
+                "_",
+            )
+        )
+
+        normalized[
+            "analysis_type"
+        ] = (
+            ANALYSIS_TYPE_ALIASES.get(
+                key,
+                key,
+            )
+        )
+
+
+    # --------------------------------------------------------
+    # METRIC
+    # --------------------------------------------------------
+
+    metric = (
+        normalized.get(
+            "metric"
+        )
+    )
+
+    if isinstance(
+        metric,
+        str,
+    ):
+
+        key = (
+            metric
+            .strip()
+            .lower()
+            .replace(
+                "-",
+                " ",
+            )
+        )
+
+        normalized[
+            "metric"
+        ] = (
+            METRIC_ALIASES.get(
+                key,
+                metric,
+            )
+        )
+
+
+    # --------------------------------------------------------
+    # DIMENSION
+    # --------------------------------------------------------
+
+    dimension = (
+        normalized.get(
+            "dimension"
+        )
+    )
+
+    if isinstance(
+        dimension,
+        str,
+    ):
+
+        key = (
+            dimension
+            .strip()
+            .lower()
+        )
+
+        normalized[
+            "dimension"
+        ] = (
+            DIMENSION_ALIASES.get(
+                key,
+                key,
+            )
+        )
+
+
+    # --------------------------------------------------------
+    # REGION VALUE
+    # --------------------------------------------------------
+
+    if (
+        normalized.get(
+            "dimension"
+        )
+        ==
+        "region"
+    ):
+
+        dimension_value = (
+            normalized.get(
+                "dimension_value"
+            )
+        )
+
+        if isinstance(
+            dimension_value,
+            str,
+        ):
+
+            region_key = (
+                dimension_value
+                .strip()
+                .lower()
+            )
+
+            normalized[
+                "dimension_value"
+            ] = (
+                REGIONS.get(
+                    region_key,
+                    dimension_value.strip(),
+                )
+            )
+
+    return normalized
+
+
+# ============================================================
+# HYBRID ENRICHMENT
+# ============================================================
+
+def enrich_local_intent(
+    question: str,
+    local_intent: AnalystIntent,
+) -> AnalystIntent:
+
+    deterministic = (
+        fallback_parse(
+            question
+        )
+    )
+
+    local_data = (
+        local_intent.model_dump()
+    )
+
+    deterministic_data = (
+        deterministic.model_dump()
+    )
+
+
+    # --------------------------------------------------------
+    # FILL SAFE DETERMINISTIC FIELDS
+    # --------------------------------------------------------
+
+    fields_to_enrich = [
+        "metric",
+        "dimension",
+        "dimension_value",
+        "current_start",
+        "current_end",
+        "comparison_start",
+        "comparison_end",
+        "target_month",
+        "promotion_start",
+        "promotion_end",
+    ]
+
+    for field_name in (
+        fields_to_enrich
+    ):
+
+        if (
+            local_data.get(
+                field_name
+            )
+            is None
+            and
+            deterministic_data.get(
+                field_name
+            )
+            is not None
+        ):
+
+            local_data[
+                field_name
+            ] = (
+                deterministic_data[
+                    field_name
+                ]
+            )
+
+
+    # --------------------------------------------------------
+    # DIAGNOSTIC DEFAULT METRIC
+    # --------------------------------------------------------
+
+    if (
+        local_data.get(
+            "analysis_type"
+        )
+        ==
+        "diagnostic"
+        and
+        local_data.get(
+            "metric"
+        )
+        is None
+    ):
+
+        local_data[
+            "metric"
+        ] = (
+            detect_metric(
+                question
+            )
+        )
+
+
+    return (
+        AnalystIntent
+        .model_validate(
+            local_data
+        )
+    )
+
+
+# ============================================================
+# OLLAMA STRUCTURED PARSER
+# ============================================================
+
+def ollama_parse(
     question: str,
 ) -> AnalystIntent:
 
     latest_date = (
-        get_max_sales_date()
+        get_latest_data_date()
     )
 
     client = (
-        get_openai_client()
+        get_llm_client()
     )
 
     model = (
-        get_openai_model()
+        get_ollama_model()
     )
 
     instructions = f"""
 You are the intent parser for an enterprise business
 intelligence application.
 
-The database contains retail commercial data.
-
-The latest available business data date is:
+Latest available business-data date:
 {latest_date.isoformat()}
 
-Interpret relative business periods using the DATA date,
-not today's calendar date.
+Use the data date above rather than today's calendar date
+when interpreting relative periods.
 
-Supported analysis types:
+Return structured data matching the supplied JSON schema.
+
+Allowed analysis_type values:
 
 latest_changes
-- For questions such as:
-  "What changed?"
-  "What needs attention?"
-  "Which areas are concerning?"
-
 diagnostic
-- For questions asking why a KPI changed.
-- Example:
-  "Why did North sales decline in June 2026?"
-- Default comparison should be the immediately preceding
-  calendar month unless the user explicitly supplies another
-  period.
-
 targets
-- For questions about target attainment, plan attainment,
-  quota, target misses or target achievement.
-
 promotions
-- For questions asking whether a promotion or campaign worked.
-
 unsupported
-- Anything outside the supported commercial analytics scope.
 
-Supported regions:
-North
-South
-East
-West
-Central
+Allowed metric values:
 
-Supported metrics:
 net_sales
 units_sold
 transactions
@@ -771,61 +1323,114 @@ discount_pct
 cost_per_unit
 stockout_rate
 
-Return dates as YYYY-MM-DD.
+Allowed dimension values:
 
-For a month-level diagnostic:
-current_start = first day of requested month
-current_end = last day of requested month
-comparison = immediately preceding month unless specified.
+overall
+region
+city
+channel
+category
+brand
+product
+store
+salesperson
 
-For target_month:
-use the first day of the requested month.
+Example:
 
-Do not calculate KPIs.
-Do not invent evidence.
-Only parse the analytical intent.
+Question:
+Why did North sales decline in June 2026?
+
+Result:
+
+analysis_type = diagnostic
+metric = net_sales
+dimension = region
+dimension_value = North
+current_start = 2026-06-01
+current_end = 2026-06-30
+comparison_start = 2026-05-01
+comparison_end = 2026-05-31
+
+Rules:
+
+1. Never calculate KPIs.
+2. Never invent business evidence.
+3. Do not explain your reasoning.
+4. Return only structured intent.
+5. For monthly diagnostics, compare against the immediately
+   preceding calendar month unless another comparison is
+   explicitly requested.
 """
 
     response = (
-        client.responses.create(
+        client.chat(
             model=
                 model,
 
-            instructions=
-                instructions,
+            messages=[
+                {
+                    "role":
+                        "system",
 
-            input=
-                question,
+                    "content":
+                        instructions,
+                },
 
-            text={
-                "format": {
-                    "type":
-                        "json_schema",
+                {
+                    "role":
+                        "user",
 
-                    "name":
-                        "analyst_intent",
+                    "content":
+                        question,
+                },
+            ],
 
-                    "strict":
-                        True,
+            format=
+                AnalystIntent
+                .model_json_schema(),
 
-                    "schema":
-                        INTENT_SCHEMA,
-                }
+            options={
+                "temperature":
+                    0,
             },
 
-            store=
+            think=
+                False,
+
+            stream=
                 False,
         )
     )
 
-    payload = json.loads(
-        response.output_text
+    content = (
+        extract_json_text(
+            response.message.content
+        )
+    )
+
+    payload = (
+        json.loads(
+            content
+        )
+    )
+
+    normalized_payload = (
+        normalize_ollama_intent_payload(
+            payload
+        )
+    )
+
+    intent = (
+        AnalystIntent
+        .model_validate(
+            normalized_payload
+        )
     )
 
     return (
-        AnalystIntent
-        .model_validate(
-            payload
+        enrich_local_intent(
+            question,
+            intent,
         )
     )
 
@@ -845,42 +1450,93 @@ def parse_intent(
 
     warnings = []
 
+
+    # --------------------------------------------------------
+    # FIRST: FAST DETERMINISTIC PARSER
+    # --------------------------------------------------------
+
+    deterministic_intent = (
+        fallback_parse(
+            question
+        )
+    )
+
+
+    # --------------------------------------------------------
+    # TEST / EXPLICIT FALLBACK MODE
+    # --------------------------------------------------------
+
+    if force_fallback:
+
+        return (
+            deterministic_intent,
+            "deterministic_fallback",
+            warnings,
+        )
+
+
+    # --------------------------------------------------------
+    # FAST PATH
+    #
+    # Standard supported business questions never wake Qwen.
+    # --------------------------------------------------------
+
     if (
-        not force_fallback
+        deterministic_intent.analysis_type
+        !=
+        "unsupported"
         and
-        llm_available()
+        deterministic_intent.confidence
+        >=
+        settings.analyst_fast_path_confidence
     ):
+
+        return (
+            deterministic_intent,
+            "deterministic_fast_path",
+            warnings,
+        )
+
+
+    # --------------------------------------------------------
+    # AMBIGUOUS QUESTION:
+    # ASK LOCAL QWEN
+    # --------------------------------------------------------
+
+    if llm_available():
 
         try:
 
-            intent = (
-                openai_parse(
+            local_intent = (
+                ollama_parse(
                     question
                 )
             )
 
             return (
-                intent,
-                "openai_structured",
+                local_intent,
+                "ollama_structured",
                 warnings,
             )
 
         except Exception as error:
 
             warnings.append(
-                "OpenAI intent parsing failed; "
-                "deterministic fallback parser was used. "
-                f"{type(error).__name__}: {str(error)}"
+                (
+                    "Local Ollama intent parsing failed; "
+                    "the deterministic parser was used. "
+                    f"{type(error).__name__}: "
+                    f"{str(error)}"
+                )
             )
 
-    intent = (
-        fallback_parse(
-            question
-        )
-    )
+
+    # --------------------------------------------------------
+    # GRACEFUL FALLBACK
+    # --------------------------------------------------------
 
     return (
-        intent,
+        deterministic_intent,
         "deterministic_fallback",
         warnings,
     )

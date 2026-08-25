@@ -1,8 +1,11 @@
 import json
 
+from ..config import settings
+
 from .llm_client import (
-    get_openai_client,
-    get_openai_model,
+    clean_llm_text,
+    get_llm_client,
+    get_ollama_model,
     llm_available,
 )
 
@@ -101,7 +104,7 @@ DIAGNOSIS_LABELS = {
 
 
 # ============================================================
-# GENERAL FORMAT HELPERS
+# GENERAL HELPERS
 # ============================================================
 
 def safe_float(
@@ -109,6 +112,7 @@ def safe_float(
 ) -> float | None:
 
     if value is None:
+
         return None
 
     try:
@@ -124,113 +128,6 @@ def safe_float(
 
         return None
 
-
-def format_number(
-    value,
-    decimals: int = 2,
-) -> str:
-
-    numeric_value = (
-        safe_float(
-            value
-        )
-    )
-
-    if numeric_value is None:
-
-        return (
-            "not available"
-        )
-
-    return (
-        f"{numeric_value:,.{decimals}f}"
-    )
-
-
-def format_percentage(
-    value,
-    decimals: int = 2,
-) -> str:
-
-    numeric_value = (
-        safe_float(
-            value
-        )
-    )
-
-    if numeric_value is None:
-
-        return (
-            "not available"
-        )
-
-    return (
-        f"{abs(numeric_value):.{decimals}f}%"
-    )
-
-
-def format_percentage_points(
-    value,
-    decimals: int = 2,
-) -> str:
-
-    numeric_value = (
-        safe_float(
-            value
-        )
-    )
-
-    if numeric_value is None:
-
-        return (
-            "not available"
-        )
-
-    return (
-        f"{abs(numeric_value):.{decimals}f} "
-        "percentage points"
-    )
-
-
-def direction_word(
-    value,
-    increase_word: str = "increased",
-    decrease_word: str = "declined",
-    flat_word: str = "was broadly unchanged",
-) -> str:
-
-    numeric_value = (
-        safe_float(
-            value
-        )
-    )
-
-    if numeric_value is None:
-
-        return (
-            "could not be evaluated"
-        )
-
-    if numeric_value > 0:
-
-        return (
-            increase_word
-        )
-
-    if numeric_value < 0:
-
-        return (
-            decrease_word
-        )
-
-    return (
-        flat_word
-    )
-
-
-# ============================================================
-# CHANGE DISPLAY
-# ============================================================
 
 def format_change(
     event: dict,
@@ -269,10 +166,6 @@ def format_change(
         "an unavailable amount"
     )
 
-
-# ============================================================
-# DRIVER DISPLAY
-# ============================================================
 
 def format_pct_driver(
     label: str,
@@ -352,10 +245,6 @@ def format_pp_driver(
     )
 
 
-# ============================================================
-# DIAGNOSIS DISPLAY
-# ============================================================
-
 def readable_diagnosis(
     diagnosis: str | None,
 ) -> str | None:
@@ -386,21 +275,18 @@ def readable_diagnosis(
 
 
 # ============================================================
-# DETERMINISTIC DIAGNOSTIC ANSWER
+# DIAGNOSTIC ANSWER
 # ============================================================
 
 def diagnostic_answer(
     result: dict,
 ) -> str:
 
-    data = (
+    event = (
         result[
             "data"
         ]
-    )
-
-    event = (
-        data[
+        [
             "event"
         ]
     )
@@ -408,14 +294,14 @@ def diagnostic_answer(
     diagnostic = (
         event.get(
             "diagnostic",
-            {}
+            {},
         )
     )
 
     drivers = (
         diagnostic.get(
             "drivers",
-            {}
+            {},
         )
     )
 
@@ -430,14 +316,14 @@ def diagnostic_answer(
         )
     )
 
-    event_direction = (
+    direction = (
         event.get(
             "direction"
         )
     )
 
     if (
-        event_direction
+        direction
         ==
         "increase"
     ):
@@ -447,7 +333,7 @@ def diagnostic_answer(
         )
 
     elif (
-        event_direction
+        direction
         ==
         "decrease"
     ):
@@ -467,119 +353,94 @@ def diagnostic_answer(
         f"{metric_label} "
         f"{direction_phrase} "
         f"{format_change(event)} "
-        f"versus the comparison period."
+        "versus the comparison period."
     )
 
     diagnosis = (
-        diagnostic.get(
-            "diagnosis"
-        )
-    )
-
-    readable = (
         readable_diagnosis(
-            diagnosis
+            diagnostic.get(
+                "diagnosis"
+            )
         )
     )
 
-    if readable:
+    if diagnosis:
 
         answer += (
-            " The deterministic diagnostic "
-            f"indicates {readable}."
+            " The analysis indicates "
+            f"{diagnosis}."
         )
 
     supporting = []
 
-    units_driver = (
-        format_pct_driver(
+    driver_specs = [
+        (
+            format_pct_driver,
             "Units",
             drivers.get(
                 "units_change_pct"
             ),
-        )
-    )
+        ),
 
-    if units_driver:
-
-        supporting.append(
-            units_driver
-        )
-
-    asp_driver = (
-        format_pct_driver(
+        (
+            format_pct_driver,
             "Average selling price",
             drivers.get(
                 "asp_change_pct"
             ),
-        )
-    )
+        ),
 
-    if asp_driver:
-
-        supporting.append(
-            asp_driver
-        )
-
-    cost_driver = (
-        format_pct_driver(
+        (
+            format_pct_driver,
             "Cost per unit",
             drivers.get(
                 "cost_per_unit_change_pct"
             ),
-        )
-    )
+        ),
 
-    if cost_driver:
-
-        supporting.append(
-            cost_driver
-        )
-
-    discount_driver = (
-        format_pp_driver(
+        (
+            format_pp_driver,
             "Discount rate",
             drivers.get(
                 "discount_change_pp"
             ),
-        )
-    )
+        ),
 
-    if discount_driver:
-
-        supporting.append(
-            discount_driver
-        )
-
-    stockout_driver = (
-        format_pp_driver(
+        (
+            format_pp_driver,
             "Stockout rate",
             drivers.get(
                 "stockout_rate_change_pp"
             ),
-        )
-    )
+        ),
 
-    if stockout_driver:
-
-        supporting.append(
-            stockout_driver
-        )
-
-    margin_driver = (
-        format_pp_driver(
+        (
+            format_pp_driver,
             "Gross margin",
             drivers.get(
                 "margin_change_pp"
             ),
-        )
-    )
+        ),
+    ]
 
-    if margin_driver:
+    for (
+        formatter,
+        label,
+        value,
+    ) in driver_specs:
 
-        supporting.append(
-            margin_driver
+        formatted = (
+            formatter(
+                label,
+                value,
+            )
         )
+
+        if formatted:
+
+            supporting.append(
+                formatted
+            )
 
     if supporting:
 
@@ -664,22 +525,19 @@ def target_answer(
             )
         )
 
-        answer = (
-            f"{focus['region']} achieved "
-        )
-
         if achievement is not None:
 
-            answer += (
+            answer = (
+                f"{focus['region']} achieved "
                 f"{achievement:.1f}% "
                 "of its sales target."
             )
 
         else:
 
-            answer += (
-                "an unavailable percentage "
-                "of its sales target."
+            answer = (
+                f"{focus['region']} target achievement "
+                "could not be calculated."
             )
 
         if (
@@ -689,9 +547,9 @@ def target_answer(
         ):
 
             answer += (
-                f" Actual sales were "
+                " Actual sales were "
                 f"{actual_sales:,.2f} "
-                f"against a target of "
+                "against a target of "
                 f"{sales_target:,.2f}."
             )
 
@@ -700,14 +558,14 @@ def target_answer(
             if sales_gap < 0:
 
                 answer += (
-                    f" This represents a shortfall "
+                    " This represents a shortfall "
                     f"of {abs(sales_gap):,.2f}."
                 )
 
             elif sales_gap > 0:
 
                 answer += (
-                    f" This represents an overachievement "
+                    " This represents an overachievement "
                     f"of {sales_gap:,.2f}."
                 )
 
@@ -724,7 +582,7 @@ def target_answer(
         ):
 
             answer += (
-                f" This is classified as a "
+                " This is classified as a "
                 f"{severity}-severity target miss."
             )
 
@@ -735,7 +593,7 @@ def target_answer(
         ):
 
             answer += (
-                f" Performance is classified as "
+                " Performance is classified as "
                 f"at risk with {severity} severity."
             )
 
@@ -766,7 +624,7 @@ def target_answer(
     issues = (
         data.get(
             "material_target_issues",
-            []
+            [],
         )
     )
 
@@ -783,7 +641,7 @@ def target_answer(
         ]
     )
 
-    top_achievement = (
+    achievement = (
         safe_float(
             top.get(
                 "sales_achievement_pct"
@@ -791,21 +649,17 @@ def target_answer(
         )
     )
 
-    if top_achievement is not None:
-
-        achievement_text = (
-            f"{top_achievement:.1f}%"
-        )
-
-    else:
-
-        achievement_text = (
-            "an unavailable percentage"
-        )
+    achievement_text = (
+        f"{achievement:.1f}%"
+        if
+        achievement is not None
+        else
+        "an unavailable percentage"
+    )
 
     return (
         f"{len(issues)} region(s) have material "
-        f"target issues. The highest-priority issue "
+        "target issues. The highest-priority issue "
         f"is {top['region']}, which achieved "
         f"{achievement_text} of its sales target."
     )
@@ -825,7 +679,7 @@ def promotion_answer(
         ]
         .get(
             "results",
-            []
+            [],
         )
     )
 
@@ -836,9 +690,6 @@ def promotion_answer(
             "in the selected period."
         )
 
-    # Current implementation returns one or more campaigns.
-    # For the deterministic answer, lead with the first
-    # matching campaign.
     promotion = (
         rows[
             0
@@ -860,97 +711,65 @@ def promotion_answer(
         )
     )
 
-    units_uplift = (
-        safe_float(
-            promotion.get(
-                "units_uplift_pct"
-            )
-        )
-    )
-
-    revenue_uplift = (
-        safe_float(
-            promotion.get(
-                "revenue_uplift_pct"
-            )
-        )
-    )
-
-    asp_change = (
-        safe_float(
-            promotion.get(
-                "asp_change_pct"
-            )
-        )
-    )
-
-    discount_change = (
-        safe_float(
-            promotion.get(
-                "discount_change_pp"
-            )
-        )
-    )
-
     answer = (
         f"{promotion['campaign_name']} "
-        f"is classified as "
-        f"{effectiveness}."
+        f"is classified as {effectiveness}."
     )
 
     evidence_parts = []
 
-    units_text = (
-        format_pct_driver(
+    driver_specs = [
+        (
+            format_pct_driver,
             "Units",
-            units_uplift,
-        )
-    )
+            promotion.get(
+                "units_uplift_pct"
+            ),
+        ),
 
-    if units_text:
-
-        evidence_parts.append(
-            units_text
-        )
-
-    revenue_text = (
-        format_pct_driver(
+        (
+            format_pct_driver,
             "Net sales",
-            revenue_uplift,
-        )
-    )
+            promotion.get(
+                "revenue_uplift_pct"
+            ),
+        ),
 
-    if revenue_text:
-
-        evidence_parts.append(
-            revenue_text
-        )
-
-    asp_text = (
-        format_pct_driver(
+        (
+            format_pct_driver,
             "Average selling price",
-            asp_change,
-        )
-    )
+            promotion.get(
+                "asp_change_pct"
+            ),
+        ),
 
-    if asp_text:
-
-        evidence_parts.append(
-            asp_text
-        )
-
-    discount_text = (
-        format_pp_driver(
+        (
+            format_pp_driver,
             "Discount rate",
-            discount_change,
-        )
-    )
+            promotion.get(
+                "discount_change_pp"
+            ),
+        ),
+    ]
 
-    if discount_text:
+    for (
+        formatter,
+        label,
+        value,
+    ) in driver_specs:
 
-        evidence_parts.append(
-            discount_text
+        formatted = (
+            formatter(
+                label,
+                value,
+            )
         )
+
+        if formatted:
+
+            evidence_parts.append(
+                formatted
+            )
 
     if evidence_parts:
 
@@ -967,15 +786,15 @@ def promotion_answer(
     if diagnosis:
 
         answer += (
-            " The deterministic diagnosis "
-            f"is {diagnosis}."
+            " The analysis indicates "
+            f"{diagnosis}."
         )
 
     return answer
 
 
 # ============================================================
-# LATEST CHANGE ANSWER
+# LATEST CHANGES ANSWER
 # ============================================================
 
 def latest_changes_answer(
@@ -991,14 +810,14 @@ def latest_changes_answer(
     summary = (
         data.get(
             "alert_summary",
-            {}
+            {},
         )
     )
 
     changes = (
         data.get(
             "top_changes",
-            []
+            [],
         )
     )
 
@@ -1066,11 +885,11 @@ def latest_changes_answer(
         )
 
     answer = (
-        f"The latest scan identified "
+        "The latest scan identified "
         f"{total_material} material changes, "
         f"including {high_severity} "
-        f"high-severity issues. "
-        f"The highest-ranked change is "
+        "high-severity issues. "
+        "The highest-ranked change is "
         f"{top['dimension_value']} "
         f"{metric_label}, which "
         f"{change_phrase} "
@@ -1080,7 +899,7 @@ def latest_changes_answer(
     diagnostic = (
         top.get(
             "diagnostic",
-            {}
+            {},
         )
     )
 
@@ -1095,7 +914,7 @@ def latest_changes_answer(
     if diagnosis:
 
         answer += (
-            f" The leading diagnostic is "
+            " The leading diagnostic is "
             f"{diagnosis}."
         )
 
@@ -1174,7 +993,7 @@ def deterministic_answer(
 
 
 # ============================================================
-# COMPACT VERIFIED EVIDENCE FOR LLM
+# COMPACT EVIDENCE FOR OPTIONAL AI EXPLANATION
 # ============================================================
 
 def compact_evidence(
@@ -1319,13 +1138,11 @@ def compact_evidence(
                 ),
         }
 
-    return (
-        result
-    )
+    return result
 
 
 # ============================================================
-# LLM RESPONSE COMPOSER
+# OPTIONAL LOCAL-AI EXPLANATION
 # ============================================================
 
 def llm_answer(
@@ -1335,11 +1152,11 @@ def llm_answer(
 ) -> str:
 
     client = (
-        get_openai_client()
+        get_llm_client()
     )
 
     model = (
-        get_openai_model()
+        get_ollama_model()
     )
 
     evidence = (
@@ -1351,32 +1168,18 @@ def llm_answer(
     instructions = """
 You are an enterprise business intelligence analyst.
 
-Your task is to explain VERIFIED analytical evidence to a
-business stakeholder in concise, decision-oriented language.
+Use only the VERIFIED analytical evidence supplied to you.
 
-STRICT RULES:
+Rules:
 
-1. Use only the verified evidence supplied in the input.
-2. Never invent numbers, causes, entities or business facts.
-3. Never calculate new KPI values yourself.
-4. Never override deterministic calculations or diagnostics.
-5. Clearly distinguish observed evidence from likely drivers.
-6. Treat deterministic diagnoses as evidence-based likely
-   explanations, not proof of causality.
-7. Mention the most decision-relevant numbers.
-8. If evidence is insufficient, explicitly say so.
-9. Never mention JSON, APIs, SQL, Python, databases,
-   tool routing, prompts or implementation details.
-10. Avoid double-negative wording such as
-    "declined by -29%".
-11. Say "declined 29%" or "increased 29%" instead.
-12. For percentage-point metrics, explicitly say
-    "percentage points".
-13. Keep the answer professional and suitable for an
-    executive or commercial business user.
-14. Lead with the key business conclusion.
-15. Prefer 2-4 concise sentences unless the question
-    clearly requires more detail.
+1. Never invent numbers.
+2. Never calculate new KPI values.
+3. Never override deterministic diagnostics.
+4. Never claim proof of causality.
+5. Never mention SQL, JSON, APIs or implementation.
+6. Never expose internal reasoning.
+7. Lead with the business conclusion.
+8. Keep the answer to 2-4 concise sentences.
 """
 
     payload = {
@@ -1393,33 +1196,54 @@ STRICT RULES:
     }
 
     response = (
-        client.responses.create(
+        client.chat(
             model=
                 model,
 
-            instructions=
-                instructions,
+            messages=[
+                {
+                    "role":
+                        "system",
 
-            input=
-                json.dumps(
-                    payload,
-                    default=str,
-                ),
+                    "content":
+                        instructions,
+                },
 
-            store=
+                {
+                    "role":
+                        "user",
+
+                    "content":
+                        json.dumps(
+                            payload,
+                            default=str,
+                        ),
+                },
+            ],
+
+            options={
+                "temperature":
+                    0.2,
+            },
+
+            think=
+                False,
+
+            stream=
                 False,
         )
     )
 
     answer = (
-        response.output_text
-        .strip()
+        clean_llm_text(
+            response.message.content
+        )
     )
 
     if not answer:
 
         raise ValueError(
-            "OpenAI returned an empty response."
+            "The local LLM returned an empty response."
         )
 
     return answer
@@ -1442,9 +1266,6 @@ def compose_answer(
 
     warnings = []
 
-    # Always construct a verified deterministic answer first.
-    # This guarantees that the core BI product continues to
-    # work even if the external LLM is unavailable.
     fallback = (
         deterministic_answer(
             intent,
@@ -1452,11 +1273,29 @@ def compose_answer(
         )
     )
 
+
+    # --------------------------------------------------------
+    # FAST DEFAULT
+    # --------------------------------------------------------
+
     if (
-        not force_deterministic
-        and
-        llm_available()
+        force_deterministic
+        or
+        not settings.analyst_use_llm_response
     ):
+
+        return (
+            fallback,
+            False,
+            warnings,
+        )
+
+
+    # --------------------------------------------------------
+    # OPTIONAL AI RESPONSE MODE
+    # --------------------------------------------------------
+
+    if llm_available():
 
         try:
 
@@ -1482,11 +1321,13 @@ def compose_answer(
         except Exception as error:
 
             warnings.append(
-                "OpenAI response generation failed; "
-                "the deterministic business response "
-                "was used instead. "
-                f"{type(error).__name__}: "
-                f"{str(error)}"
+                (
+                    "Local AI explanation failed; "
+                    "the deterministic business response "
+                    "was used. "
+                    f"{type(error).__name__}: "
+                    f"{str(error)}"
+                )
             )
 
     return (

@@ -1,7 +1,10 @@
+from time import perf_counter
+
 from fastapi import (
     APIRouter,
-    HTTPException,
 )
+
+from ..config import settings
 
 from ..analyst.models import (
     AnalystAskRequest,
@@ -13,71 +16,81 @@ from ..analyst.orchestrator import (
 )
 
 
+# ============================================================
+# ROUTER
+# ============================================================
+
 router = APIRouter(
-    prefix="/analyst",
+    prefix=
+        "/analyst",
+
     tags=[
-        "AI Business Analyst"
+        "Analyst",
     ],
 )
-
-
-# ============================================================
-# ERROR DETAIL
-# ============================================================
-
-def error_detail(
-    error: Exception,
-) -> str:
-
-    message = (
-        str(error)
-        .strip()
-    )
-
-    if not message:
-
-        message = (
-            repr(error)
-        )
-
-    return (
-        f"{type(error).__name__}: "
-        f"{message}"
-    )
 
 
 # ============================================================
 # CAPABILITIES
 # ============================================================
 
-@router.get("/capabilities")
+@router.get(
+    "/capabilities"
+)
 def analyst_capabilities():
 
     return {
         "status":
             "ready",
 
-        "supported_questions": [
-            "What changed in the business?",
-            "Why did North sales decline in June?",
-            "Which regions missed target in July?",
-            "Did the April promotion work?",
-            "What drove South margin deterioration?",
-        ],
+        "analyst_mode":
+            "hybrid_local",
+
+        "llm_provider":
+            settings.llm_provider,
+
+        "llm_model":
+            settings.ollama_model,
+
+        "fast_path_enabled":
+            True,
+
+        "llm_response_rewriting":
+            settings.analyst_use_llm_response,
 
         "supported_analysis": [
-            "business_change_detection",
-            "driver_diagnostics",
-            "target_achievement",
-            "promotion_effectiveness",
+            "business change detection",
+            "performance driver diagnostics",
+            "target achievement",
+            "promotion effectiveness",
         ],
 
-        "design_principle":
+        "example_questions": [
             (
-                "The AI interprets questions and explains "
-                "verified results. KPI calculations remain "
-                "deterministic."
+                "Why did North sales decline "
+                "in June 2026?"
             ),
+
+            (
+                "How did East perform against "
+                "target in July 2026?"
+            ),
+
+            (
+                "Did the April 2026 "
+                "promotion work?"
+            ),
+
+            (
+                "What drove South margin "
+                "deterioration in July 2026?"
+            ),
+
+            (
+                "What are the most important "
+                "business issues I should focus on?"
+            ),
+        ],
     }
 
 
@@ -90,32 +103,155 @@ def analyst_capabilities():
     response_model=
         AnalystAskResponse,
 )
-def ask_business_analyst(
+def ask_analyst_endpoint(
     request: AnalystAskRequest,
 ):
 
-    try:
+    started = (
+        perf_counter()
+    )
 
-        return (
-            ask_analyst(
-                request.question
-            )
+
+    # --------------------------------------------------------
+    # EXISTING ORCHESTRATOR
+    # --------------------------------------------------------
+
+    result = (
+        ask_analyst(
+            request.question
+        )
+    )
+
+
+    # --------------------------------------------------------
+    # SUPPORT DICT OR PYDANTIC RESPONSE
+    # --------------------------------------------------------
+
+    if hasattr(
+        result,
+        "model_dump",
+    ):
+
+        payload = (
+            result.model_dump()
         )
 
-    except ValueError as error:
+    else:
 
-        raise HTTPException(
-            status_code=400,
-            detail=error_detail(
-                error
-            ),
-        ) from error
+        payload = dict(
+            result
+        )
 
-    except Exception as error:
 
-        raise HTTPException(
-            status_code=500,
-            detail=error_detail(
-                error
-            ),
-        ) from error
+    # --------------------------------------------------------
+    # LLM USAGE
+    # --------------------------------------------------------
+
+    parser = (
+        payload.get(
+            "parser",
+            "unknown",
+        )
+    )
+
+    response_llm_used = bool(
+        payload.get(
+            "used_llm",
+            False,
+        )
+    )
+
+    intent_llm_used = (
+        parser
+        ==
+        "ollama_structured"
+    )
+
+    payload[
+        "llm_usage"
+    ] = {
+        "intent":
+            intent_llm_used,
+
+        "response":
+            response_llm_used,
+    }
+
+    payload[
+        "used_llm"
+    ] = (
+        intent_llm_used
+        or
+        response_llm_used
+    )
+
+
+    # --------------------------------------------------------
+    # EXECUTION MODE
+    # --------------------------------------------------------
+
+    if (
+        parser
+        ==
+        "deterministic_fast_path"
+    ):
+
+        execution_mode = (
+            "fast_path"
+        )
+
+    elif (
+        parser
+        ==
+        "ollama_structured"
+    ):
+
+        execution_mode = (
+            "local_ai"
+        )
+
+    else:
+
+        execution_mode = (
+            "fallback"
+        )
+
+    payload[
+        "execution_mode"
+    ] = (
+        execution_mode
+    )
+
+
+    # --------------------------------------------------------
+    # RESPONSE TIME
+    # --------------------------------------------------------
+
+    elapsed_ms = (
+        (
+            perf_counter()
+            -
+            started
+        )
+        *
+        1000
+    )
+
+    payload[
+        "response_time_ms"
+    ] = round(
+        elapsed_ms,
+        2,
+    )
+
+
+    # --------------------------------------------------------
+    # VALIDATED RESPONSE
+    # --------------------------------------------------------
+
+    return (
+        AnalystAskResponse
+        .model_validate(
+            payload
+        )
+    )
