@@ -1,3 +1,7 @@
+
+from .routes.analyst import (
+    router as analyst_router,
+)
 from .routes.intelligence import (
     router as intelligence_router,
 )
@@ -99,11 +103,14 @@ app = FastAPI(
         "live data refresh and "
         "business intelligence services."
     ),
-    version="0.4.0",
+    version="0.5.0",
 )
 
 app.include_router(
     intelligence_router
+)
+app.include_router(
+    analyst_router
 )
 
 
@@ -119,7 +126,7 @@ def root():
             "AI Business Intelligence Analyst",
 
         "version":
-            "0.4.0",
+            "0.5.0",
 
         "status":
             "running",
