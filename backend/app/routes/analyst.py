@@ -1,18 +1,26 @@
-from time import perf_counter
+from __future__ import annotations
+
+from copy import deepcopy
+
+from uuid import uuid4
 
 from fastapi import (
     APIRouter,
+    HTTPException,
+    Query,
 )
-
-from ..config import settings
 
 from ..analyst.models import (
     AnalystAskRequest,
-    AnalystAskResponse,
 )
 
 from ..analyst.orchestrator import (
     ask_analyst,
+)
+
+from ..analyst.recommendation_service import (
+    build_recommendation_response,
+    is_recommendation_question,
 )
 
 
@@ -21,13 +29,507 @@ from ..analyst.orchestrator import (
 # ============================================================
 
 router = APIRouter(
-    prefix=
-        "/analyst",
-
+    prefix="/analyst",
     tags=[
-        "Analyst",
+        "Business Analyst"
     ],
 )
+
+
+# ============================================================
+# FRIENDLY ERROR DETAIL
+# ============================================================
+
+def _error_detail(
+    error: Exception,
+) -> str:
+
+    message = (
+        str(error)
+        .strip()
+    )
+
+    if not message:
+
+        message = repr(
+            error
+        )
+
+    return (
+        f"{type(error).__name__}: "
+        f"{message}"
+    )
+
+
+# ============================================================
+# EXECUTION METADATA NORMALIZATION
+#
+# This keeps API metadata consistent even when an older
+# orchestrator path omits execution_mode or incorrectly
+# reports used_llm.
+#
+# We do NOT alter:
+# - analytical evidence
+# - intent
+# - answer
+# - tool routing
+# - KPI calculations
+# ============================================================
+
+def normalize_execution_metadata(
+    result: dict,
+) -> dict:
+
+    normalized = deepcopy(
+        result
+    )
+
+    parser = (
+        str(
+            normalized.get(
+                "parser"
+            )
+            or
+            ""
+        )
+        .strip()
+        .lower()
+    )
+
+    llm_usage = (
+        normalized.get(
+            "llm_usage"
+        )
+    )
+
+    if not isinstance(
+        llm_usage,
+        dict,
+    ):
+
+        llm_usage = {}
+
+    # --------------------------------------------------------
+    # OLLAMA INTENT PARSER
+    # --------------------------------------------------------
+
+    if (
+        parser
+        ==
+        "ollama_structured"
+    ):
+
+        normalized[
+            "used_llm"
+        ] = True
+
+        llm_usage[
+            "intent"
+        ] = True
+
+        llm_usage.setdefault(
+            "response",
+            False,
+        )
+
+        normalized[
+            "execution_mode"
+        ] = (
+            "local_ai"
+        )
+
+    # --------------------------------------------------------
+    # DETERMINISTIC ANALYST FAST PATH
+    # --------------------------------------------------------
+
+    elif (
+        parser
+        ==
+        "deterministic_fast_path"
+    ):
+
+        normalized[
+            "used_llm"
+        ] = False
+
+        llm_usage[
+            "intent"
+        ] = False
+
+        llm_usage.setdefault(
+            "response",
+            False,
+        )
+
+        normalized[
+            "execution_mode"
+        ] = (
+            "fast_path"
+        )
+
+    # --------------------------------------------------------
+    # DETERMINISTIC RECOMMENDATION ENGINE
+    # --------------------------------------------------------
+
+    elif (
+        parser
+        ==
+        "deterministic_recommendation"
+    ):
+
+        normalized[
+            "used_llm"
+        ] = False
+
+        llm_usage[
+            "intent"
+        ] = False
+
+        llm_usage[
+            "response"
+        ] = False
+
+        normalized[
+            "execution_mode"
+        ] = (
+            "fast_path"
+        )
+
+    # --------------------------------------------------------
+    # GUARDRAIL
+    # --------------------------------------------------------
+
+    elif (
+        parser
+        ==
+        "intent_guardrail"
+    ):
+
+        normalized[
+            "used_llm"
+        ] = False
+
+        llm_usage.setdefault(
+            "intent",
+            False,
+        )
+
+        llm_usage.setdefault(
+            "response",
+            False,
+        )
+
+        normalized[
+            "execution_mode"
+        ] = (
+            "guardrail"
+        )
+
+    else:
+
+        normalized.setdefault(
+            "used_llm",
+            False,
+        )
+
+        normalized.setdefault(
+            "execution_mode",
+            "unknown",
+        )
+
+        llm_usage.setdefault(
+            "intent",
+            False,
+        )
+
+        llm_usage.setdefault(
+            "response",
+            False,
+        )
+
+    normalized[
+        "llm_usage"
+    ] = llm_usage
+
+    return normalized
+
+
+# ============================================================
+# CONTROLLED SEMANTIC FAILURE
+# ============================================================
+
+def _semantic_guardrail_response(
+    question: str,
+) -> dict:
+
+    return {
+        "status":
+            "unsupported",
+
+        "question":
+            question,
+
+        "answer":
+            (
+                "I understood this as a business-analysis "
+                "request, but I could not resolve a valid "
+                "business entity for the requested analysis. "
+                "Try naming a specific region, product, store "
+                "or KPI, or ask which areas require attention."
+            ),
+
+        "intent": {
+            "analysis_type":
+                "unsupported",
+
+            "metric":
+                None,
+
+            "dimension":
+                None,
+
+            "dimension_value":
+                None,
+
+            "current_start":
+                None,
+
+            "current_end":
+                None,
+
+            "comparison_start":
+                None,
+
+            "comparison_end":
+                None,
+
+            "target_month":
+                None,
+
+            "promotion_start":
+                None,
+
+            "promotion_end":
+                None,
+
+            "confidence":
+                0.0,
+        },
+
+        "parser":
+            "intent_guardrail",
+
+        "tool_used":
+            "none",
+
+        "used_llm":
+            False,
+
+        "llm_usage": {
+            "intent":
+                False,
+
+            "response":
+                False,
+        },
+
+        "execution_mode":
+            "guardrail",
+
+        "response_time_ms":
+            0.0,
+
+        "evidence":
+            {},
+
+        "warnings": [
+            (
+                "A parsed business entity could not be "
+                "validated against the analytical data."
+            )
+        ],
+
+        "analysis_id":
+            str(
+                uuid4()
+            ),
+    }
+
+
+# ============================================================
+# ASK ANALYST
+# ============================================================
+
+@router.post(
+    "/ask"
+)
+def ask_analyst_endpoint(
+    request: AnalystAskRequest,
+):
+
+    question = (
+        request.question
+        .strip()
+    )
+
+    if not question:
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Question cannot be empty."
+            ),
+        )
+
+    # --------------------------------------------------------
+    # MANAGEMENT RECOMMENDATION FAST PATH
+    # --------------------------------------------------------
+
+    if (
+        is_recommendation_question(
+            question
+        )
+    ):
+
+        try:
+
+            result = (
+                build_recommendation_response(
+                    question
+                )
+            )
+
+            return (
+                normalize_execution_metadata(
+                    result
+                )
+            )
+
+        except Exception as error:
+
+            raise HTTPException(
+                status_code=500,
+                detail=_error_detail(
+                    error
+                ),
+            ) from error
+
+    # --------------------------------------------------------
+    # EXISTING ANALYST ORCHESTRATOR
+    # --------------------------------------------------------
+
+    try:
+
+        result = (
+            ask_analyst(
+                question
+            )
+        )
+
+        if not isinstance(
+            result,
+            dict,
+        ):
+
+            raise TypeError(
+                (
+                    "Analyst orchestrator returned an "
+                    "unexpected response type."
+                )
+            )
+
+        return (
+            normalize_execution_metadata(
+                result
+            )
+        )
+
+    # --------------------------------------------------------
+    # INTENT / ENTITY FAILURE
+    # --------------------------------------------------------
+
+    except (
+        ValueError,
+        KeyError,
+    ):
+
+        return (
+            normalize_execution_metadata(
+                _semantic_guardrail_response(
+                    question
+                )
+            )
+        )
+
+    # --------------------------------------------------------
+    # TRUE SYSTEM FAILURE
+    # --------------------------------------------------------
+
+    except Exception as error:
+
+        raise HTTPException(
+            status_code=500,
+            detail=_error_detail(
+                error
+            ),
+        ) from error
+
+
+# ============================================================
+# RECOMMENDATIONS
+# ============================================================
+
+@router.get(
+    "/recommendations"
+)
+def analyst_recommendations(
+    region: str | None = Query(
+        default=None
+    ),
+    limit: int = Query(
+        default=4,
+        ge=1,
+        le=10,
+    ),
+):
+
+    if region:
+
+        question = (
+            "What actions should we take "
+            f"to improve performance in {region}?"
+        )
+
+    else:
+
+        question = (
+            "How can we improve performance "
+            "in regions which require attention?"
+        )
+
+    try:
+
+        result = (
+            build_recommendation_response(
+                question=question,
+                limit=limit,
+            )
+        )
+
+        return (
+            normalize_execution_metadata(
+                result
+            )
+        )
+
+    except Exception as error:
+
+        raise HTTPException(
+            status_code=500,
+            detail=_error_detail(
+                error
+            ),
+        ) from error
 
 
 # ============================================================
@@ -40,218 +542,79 @@ router = APIRouter(
 def analyst_capabilities():
 
     return {
-        "status":
-            "ready",
+        "application":
+            "AI Business Intelligence Analyst",
 
-        "analyst_mode":
-            "hybrid_local",
-
-        "llm_provider":
-            settings.llm_provider,
-
-        "llm_model":
-            settings.ollama_model,
-
-        "fast_path_enabled":
+        "local_first":
             True,
 
-        "llm_response_rewriting":
-            settings.analyst_use_llm_response,
-
         "supported_analysis": [
-            "business change detection",
-            "performance driver diagnostics",
-            "target achievement",
-            "promotion effectiveness",
+            "latest_changes",
+            "diagnostic",
+            "targets",
+            "promotions",
+            "recommendations",
         ],
+
+        "decision_support": {
+            "recommendation_engine":
+                True,
+
+            "verified_evidence_only":
+                True,
+
+            "persistent_priorities":
+                True,
+
+            "risk_opportunity_separation":
+                True,
+
+            "action_ready":
+                True,
+        },
+
+        "guardrails": {
+            "llm_calculates_kpis":
+                False,
+
+            "unrestricted_llm_sql":
+                False,
+
+            "invalid_entity_returns_http_500":
+                False,
+
+            "execution_metadata_normalized":
+                True,
+        },
 
         "example_questions": [
             (
                 "Why did North sales decline "
                 "in June 2026?"
             ),
-
-            (
-                "How did East perform against "
-                "target in July 2026?"
-            ),
-
-            (
-                "Did the April 2026 "
-                "promotion work?"
-            ),
-
             (
                 "What drove South margin "
                 "deterioration in July 2026?"
             ),
-
             (
-                "What are the most important "
-                "business issues I should focus on?"
+                "How did East perform against "
+                "target in July 2026?"
+            ),
+            (
+                "Did the April 2026 promotion "
+                "work?"
+            ),
+            (
+                "How can we improve sales in "
+                "regions which require attention?"
+            ),
+            (
+                "What should we do about South "
+                "margin deterioration?"
+            ),
+            (
+                "What should we do to scale the "
+                "North growth opportunity?"
             ),
         ],
     }
-
-
-# ============================================================
-# ASK ANALYST
-# ============================================================
-
-@router.post(
-    "/ask",
-    response_model=
-        AnalystAskResponse,
-)
-def ask_analyst_endpoint(
-    request: AnalystAskRequest,
-):
-
-    started = (
-        perf_counter()
-    )
-
-
-    # --------------------------------------------------------
-    # EXISTING ORCHESTRATOR
-    # --------------------------------------------------------
-
-    result = (
-        ask_analyst(
-            request.question
-        )
-    )
-
-
-    # --------------------------------------------------------
-    # SUPPORT DICT OR PYDANTIC RESPONSE
-    # --------------------------------------------------------
-
-    if hasattr(
-        result,
-        "model_dump",
-    ):
-
-        payload = (
-            result.model_dump()
-        )
-
-    else:
-
-        payload = dict(
-            result
-        )
-
-
-    # --------------------------------------------------------
-    # LLM USAGE
-    # --------------------------------------------------------
-
-    parser = (
-        payload.get(
-            "parser",
-            "unknown",
-        )
-    )
-
-    response_llm_used = bool(
-        payload.get(
-            "used_llm",
-            False,
-        )
-    )
-
-    intent_llm_used = (
-        parser
-        ==
-        "ollama_structured"
-    )
-
-    payload[
-        "llm_usage"
-    ] = {
-        "intent":
-            intent_llm_used,
-
-        "response":
-            response_llm_used,
-    }
-
-    payload[
-        "used_llm"
-    ] = (
-        intent_llm_used
-        or
-        response_llm_used
-    )
-
-
-    # --------------------------------------------------------
-    # EXECUTION MODE
-    # --------------------------------------------------------
-
-    if (
-        parser
-        ==
-        "deterministic_fast_path"
-    ):
-
-        execution_mode = (
-            "fast_path"
-        )
-
-    elif (
-        parser
-        ==
-        "ollama_structured"
-    ):
-
-        execution_mode = (
-            "local_ai"
-        )
-
-    else:
-
-        execution_mode = (
-            "fallback"
-        )
-
-    payload[
-        "execution_mode"
-    ] = (
-        execution_mode
-    )
-
-
-    # --------------------------------------------------------
-    # RESPONSE TIME
-    # --------------------------------------------------------
-
-    elapsed_ms = (
-        (
-            perf_counter()
-            -
-            started
-        )
-        *
-        1000
-    )
-
-    payload[
-        "response_time_ms"
-    ] = round(
-        elapsed_ms,
-        2,
-    )
-
-
-    # --------------------------------------------------------
-    # VALIDATED RESPONSE
-    # --------------------------------------------------------
-
-    return (
-        AnalystAskResponse
-        .model_validate(
-            payload
-        )
-    )
