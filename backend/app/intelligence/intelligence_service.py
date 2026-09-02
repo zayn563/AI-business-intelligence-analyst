@@ -202,6 +202,7 @@ def event_sort_key(
 
 def run_business_intelligence(
     request: IntelligenceRunRequest,
+    include_all_material_changes: bool = False,
 ) -> dict:
 
     (
@@ -432,7 +433,7 @@ def run_business_intelligence(
     # RESPONSE
     # ========================================================
 
-    return {
+    response = {
         "status":
             "success",
 
@@ -503,3 +504,11 @@ def run_business_intelligence(
         "top_changes":
             top_changes,
     }
+
+    if include_all_material_changes:
+
+        response[
+            "material_changes"
+        ] = all_events
+
+    return response

@@ -1234,11 +1234,15 @@ def build_business_priorities(
     intelligence: dict,
     target_payload: dict | None = None,
     target_month: date | None = None,
-    max_risks: int = 3,
-    max_opportunities: int = 2,
+    max_risks: int | None = 3,
+    max_opportunities: int | None = 2,
 ) -> dict:
 
     top_changes = (
+        intelligence.get(
+            "material_changes"
+        )
+        or
         intelligence.get(
             "top_changes"
         )
@@ -1401,12 +1405,22 @@ def build_business_priorities(
             ),
 
         "risks":
-            risks[
-                :max_risks
-            ],
+            (
+                risks
+                if max_risks is None
+                else
+                risks[
+                    :max_risks
+                ]
+            ),
 
         "opportunities":
-            opportunities[
-                :max_opportunities
-            ],
+            (
+                opportunities
+                if max_opportunities is None
+                else
+                opportunities[
+                    :max_opportunities
+                ]
+            ),
     }

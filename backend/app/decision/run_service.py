@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-from datetime import (
-    date,
-    timedelta,
-)
+from datetime import date
 
 from sqlalchemy import text
 
@@ -13,7 +10,12 @@ from ..dashboard.priority_service import (
     build_business_priorities,
 )
 
+from ..data_quality import (
+    get_data_freshness_report,
+)
+
 from ..intelligence.intelligence_service import (
+    latest_complete_periods,
     run_business_intelligence,
 )
 
@@ -73,33 +75,24 @@ def get_latest_sales_date() -> date:
 # ============================================================
 
 def get_analysis_periods() -> dict:
+    """
+    Resolve one authoritative analytical cycle.
+
+    The deterministic BI engine already defines the latest
+    complete month. Decision intelligence now reuses exactly
+    that period instead of independently treating a partial
+    latest sales month as the current analytical cycle.
+    """
 
     latest_date = (
         get_latest_sales_date()
     )
 
-    current_start = date(
-        latest_date.year,
-        latest_date.month,
-        1,
-    )
-
-    current_end = (
-        latest_date
-    )
-
-    comparison_end = (
-        current_start
-        -
-        timedelta(
-            days=1
-        )
-    )
-
-    comparison_start = date(
-        comparison_end.year,
-        comparison_end.month,
-        1,
+    (
+        current_period,
+        comparison_period,
+    ) = (
+        latest_complete_periods()
     )
 
     return {
@@ -107,16 +100,16 @@ def get_analysis_periods() -> dict:
             latest_date,
 
         "current_start":
-            current_start,
+            current_period.start,
 
         "current_end":
-            current_end,
+            current_period.end,
 
         "comparison_start":
-            comparison_start,
+            comparison_period.start,
 
         "comparison_end":
-            comparison_end,
+            comparison_period.end,
     }
 
 
@@ -131,17 +124,57 @@ def run_decision_intelligence() -> dict:
     )
 
     # --------------------------------------------------------
-    # 1. Run deterministic business-intelligence engine.
+    # 1. Resolve freshness against the SAME completed period
+    #    that the decision cycle is about to analyze.
     # --------------------------------------------------------
 
-    intelligence = (
-        run_business_intelligence(
-            IntelligenceRunRequest()
+    freshness = (
+        get_data_freshness_report(
+            reference_date=
+                periods[
+                    "current_end"
+                ]
         )
     )
 
     # --------------------------------------------------------
-    # 2. Run deterministic target analysis.
+    # 2. Run deterministic business intelligence using the
+    #    explicit authoritative periods.
+    # --------------------------------------------------------
+
+    intelligence = (
+        run_business_intelligence(
+            IntelligenceRunRequest(
+                current_period={
+                    "start":
+                        periods[
+                            "current_start"
+                        ],
+
+                    "end":
+                        periods[
+                            "current_end"
+                        ],
+                },
+
+                comparison_period={
+                    "start":
+                        periods[
+                            "comparison_start"
+                        ],
+
+                    "end":
+                        periods[
+                            "comparison_end"
+                        ],
+                },
+            ),
+            include_all_material_changes=True,
+        )
+    )
+
+    # --------------------------------------------------------
+    # 3. Run target analysis for the same completed month.
     # --------------------------------------------------------
 
     target_payload = (
@@ -154,11 +187,7 @@ def run_decision_intelligence() -> dict:
     )
 
     # --------------------------------------------------------
-    # 3. Convert individual signals into management priorities.
-    #
-    # We deliberately ask for a large result set here because
-    # persistence should not be limited to the three cards shown
-    # on the dashboard.
+    # 4. Convert signals into management priorities.
     # --------------------------------------------------------
 
     priorities = (
@@ -175,15 +204,15 @@ def run_decision_intelligence() -> dict:
                 ],
 
             max_risks=
-                100,
+                None,
 
             max_opportunities=
-                100,
+                None,
         )
     )
 
     # --------------------------------------------------------
-    # 4. Persist / update lifecycle.
+    # 5. Persist / update lifecycle with evidence guardrails.
     # --------------------------------------------------------
 
     persisted = (
@@ -210,11 +239,14 @@ def run_decision_intelligence() -> dict:
                 periods[
                     "comparison_end"
                 ],
+
+            freshness_report=
+                freshness,
         )
     )
 
     # --------------------------------------------------------
-    # 5. Read the final active state back from persistence.
+    # 6. Read final active state after persistence.
     # --------------------------------------------------------
 
     active_insights = (
@@ -241,6 +273,16 @@ def run_decision_intelligence() -> dict:
         )
         ==
         "opportunity"
+    ]
+
+    resolution_blocked = [
+        item
+        for item
+        in active_insights
+        if item.get(
+            "resolution_blocked"
+        )
+        is True
     ]
 
     brief = (
@@ -282,6 +324,55 @@ def run_decision_intelligence() -> dict:
                 ],
         },
 
+        "freshness": {
+            "status":
+                freshness.get(
+                    "status"
+                ),
+
+            "reference_data_through":
+                freshness.get(
+                    "reference_data_through"
+                ),
+
+            "blocking_datasets":
+                freshness.get(
+                    "blocking_datasets",
+                    [],
+                ),
+
+            "mixed_period_warning":
+                freshness.get(
+                    "mixed_period_warning",
+                    False,
+                ),
+        },
+
+        "targets": {
+            "data_available":
+                target_payload.get(
+                    "data_available",
+                    False,
+                ),
+
+            "evidence_status":
+                target_payload.get(
+                    "evidence_status"
+                ),
+
+            "regions_evaluated":
+                (
+                    target_payload.get(
+                        "summary",
+                        {},
+                    )
+                    .get(
+                        "regions_evaluated",
+                        0,
+                    )
+                ),
+        },
+
         "detected": {
             "risk_count":
                 len(
@@ -319,6 +410,11 @@ def run_decision_intelligence() -> dict:
             "total":
                 len(
                     active_insights
+                ),
+
+            "resolution_blocked_count":
+                len(
+                    resolution_blocked
                 ),
         },
 

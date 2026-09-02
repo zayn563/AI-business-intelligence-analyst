@@ -467,3 +467,167 @@ def test_scenario_endpoint():
         in
         payload
     )
+
+
+# ============================================================
+# COMPLETE-PERIOD DECISION CYCLE
+# ============================================================
+
+
+def test_analysis_periods_reuse_latest_complete_period(
+    monkeypatch,
+):
+    from datetime import date
+
+    from backend.app.decision import (
+        run_service,
+    )
+
+    from backend.app.intelligence.models import (
+        PeriodRange,
+    )
+
+    monkeypatch.setattr(
+        run_service,
+        "get_latest_sales_date",
+        lambda: date(
+            2026,
+            9,
+            2,
+        ),
+    )
+
+    monkeypatch.setattr(
+        run_service,
+        "latest_complete_periods",
+        lambda: (
+            PeriodRange(
+                start=date(
+                    2026,
+                    8,
+                    1,
+                ),
+                end=date(
+                    2026,
+                    8,
+                    31,
+                ),
+            ),
+            PeriodRange(
+                start=date(
+                    2026,
+                    7,
+                    1,
+                ),
+                end=date(
+                    2026,
+                    7,
+                    31,
+                ),
+            ),
+        ),
+    )
+
+    periods = (
+        run_service.get_analysis_periods()
+    )
+
+    assert (
+        periods[
+            "data_through"
+        ]
+        ==
+        date(
+            2026,
+            9,
+            2,
+        )
+    )
+
+    assert (
+        periods[
+            "current_start"
+        ]
+        ==
+        date(
+            2026,
+            8,
+            1,
+        )
+    )
+
+    assert (
+        periods[
+            "current_end"
+        ]
+        ==
+        date(
+            2026,
+            8,
+            31,
+        )
+    )
+
+
+# ============================================================
+# TARGET DATA AVAILABILITY
+# ============================================================
+
+
+def test_target_analysis_distinguishes_missing_data_from_no_issue(
+    monkeypatch,
+):
+    from datetime import date
+
+    from backend.app.intelligence import (
+        target_analysis,
+    )
+
+    monkeypatch.setattr(
+        target_analysis,
+        "fetch_target_rows",
+        lambda month_start: [],
+    )
+
+    payload = (
+        target_analysis.analyze_targets(
+            month_start=date(
+                2026,
+                8,
+                1,
+            )
+        )
+    )
+
+    assert (
+        payload[
+            "data_available"
+        ]
+        is False
+    )
+
+    assert (
+        payload[
+            "evidence_status"
+        ]
+        ==
+        "INCOMPLETE"
+    )
+
+    assert (
+        payload[
+            "material_target_issues"
+        ]
+        ==
+        []
+    )
+
+    assert (
+        payload[
+            "summary"
+        ][
+            "target_rows"
+        ]
+        ==
+        0
+    )

@@ -1235,19 +1235,48 @@ def build_dataset_report(
 # ============================================================
 
 
-def get_data_freshness_report() -> dict:
+def get_data_freshness_report(
+    reference_date: date | None = None,
+) -> dict:
+    """
+    Build the warehouse freshness report.
+
+    When reference_date is provided, every dataset is evaluated
+    against that explicit analytical cut-off. This is important
+    for decision-intelligence runs because the latest sales date
+    can belong to an incomplete month while the analytical engine
+    intentionally operates on the latest complete month.
+
+    When reference_date is omitted, the historical behavior is
+    preserved and the maximum sales date becomes the reference.
+    """
+
     with engine.connect() as connection:
-        reference_date = (
-            get_sales_reference_date(
-                connection
+
+        if reference_date is None:
+            resolved_reference_date = (
+                get_sales_reference_date(
+                    connection
+                )
             )
-        )
+
+        else:
+            resolved_reference_date = (
+                normalize_date(
+                    reference_date
+                )
+            )
+
+            if resolved_reference_date is None:
+                raise ValueError(
+                    "reference_date must be a valid date."
+                )
 
         datasets = [
             build_dataset_report(
                 connection=connection,
                 spec=spec,
-                reference_date=reference_date,
+                reference_date=resolved_reference_date,
             )
             for spec
             in DATASET_SPECS
@@ -1358,7 +1387,7 @@ def get_data_freshness_report() -> dict:
             "sales",
 
         "reference_data_through":
-            reference_date.isoformat(),
+            resolved_reference_date.isoformat(),
 
         "required_datasets": [
             dataset[

@@ -3,6 +3,10 @@ from backend.app.data_quality.evidence_guard import (
     required_datasets_for_metric,
 )
 
+from backend.app.decision.insight_service import (
+    evaluate_disappeared_insight_resolution,
+)
+
 
 # ============================================================
 # TEST FIXTURE
@@ -178,6 +182,22 @@ def test_current_sales_metric_can_be_evaluated_for_resolution():
         is True
     )
 
+    assert (
+        result[
+            "blocking_datasets"
+        ]
+        ==
+        []
+    )
+
+    assert (
+        result[
+            "reference_data_through"
+        ]
+        ==
+        "2026-08-31"
+    )
+
 
 def test_stale_targets_block_target_resolution():
     result = evaluate_metric_evidence(
@@ -202,6 +222,16 @@ def test_stale_targets_block_target_resolution():
         is False
     )
 
+    assert (
+        result[
+            "blocking_datasets"
+        ]
+        ==
+        [
+            "targets",
+        ]
+    )
+
 
 def test_stale_inventory_blocks_stockout_resolution():
     result = evaluate_metric_evidence(
@@ -224,6 +254,16 @@ def test_stale_inventory_blocks_stockout_resolution():
             "resolution_allowed"
         ]
         is False
+    )
+
+    assert (
+        result[
+            "blocking_datasets"
+        ]
+        ==
+        [
+            "inventory",
+        ]
     )
 
 
@@ -272,4 +312,90 @@ def test_unknown_metric_defaults_to_sales_evidence():
             "resolution_allowed"
         ]
         is True
+    )
+
+
+# ============================================================
+# DISAPPEARED INSIGHT LIFECYCLE
+# ============================================================
+
+
+def test_disappeared_target_issue_is_not_resolved_when_targets_stale():
+    result = evaluate_disappeared_insight_resolution(
+        existing={
+            "primary_metric":
+                "target_attainment",
+        },
+        freshness_report=freshness_report(
+            targets_status="STALE"
+        ),
+    )
+
+    assert (
+        result[
+            "should_resolve"
+        ]
+        is False
+    )
+
+    assert (
+        result[
+            "blocking_datasets"
+        ]
+        ==
+        [
+            "targets",
+        ]
+    )
+
+
+def test_disappeared_stockout_issue_is_not_resolved_when_inventory_stale():
+    result = evaluate_disappeared_insight_resolution(
+        existing={
+            "primary_metric":
+                "stockout_rate",
+        },
+        freshness_report=freshness_report(
+            inventory_status="STALE"
+        ),
+    )
+
+    assert (
+        result[
+            "should_resolve"
+        ]
+        is False
+    )
+
+    assert (
+        result[
+            "evidence_status"
+        ]
+        ==
+        "STALE"
+    )
+
+
+def test_disappeared_sales_issue_can_resolve_when_sales_current():
+    result = evaluate_disappeared_insight_resolution(
+        existing={
+            "primary_metric":
+                "gross_profit",
+        },
+        freshness_report=freshness_report(),
+    )
+
+    assert (
+        result[
+            "should_resolve"
+        ]
+        is True
+    )
+
+    assert (
+        result[
+            "evidence_status"
+        ]
+        ==
+        "CURRENT"
     )

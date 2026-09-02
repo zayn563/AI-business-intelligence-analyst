@@ -400,6 +400,21 @@ def evaluate_metric_evidence(
         EvidenceStatus.CURRENT
     )
 
+    blocking_datasets = [
+        item[
+            "dataset"
+        ]
+        for item
+        in evidence
+        if (
+            item[
+                "status"
+            ]
+            !=
+            EvidenceStatus.CURRENT.value
+        )
+    ]
+
     return {
         "metric":
             normalize_metric(
@@ -416,6 +431,14 @@ def evaluate_metric_evidence(
 
         "resolution_allowed":
             resolution_allowed,
+
+        "blocking_datasets":
+            blocking_datasets,
+
+        "reference_data_through":
+            freshness_report.get(
+                "reference_data_through"
+            ),
 
         "evidence":
             evidence,

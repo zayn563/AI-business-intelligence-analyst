@@ -8,6 +8,11 @@ from sqlalchemy import text
 
 from ..database import engine
 
+from ..data_quality import (
+    evaluate_metric_evidence,
+    get_data_freshness_report,
+)
+
 
 # ============================================================
 # SEVERITY RANK
@@ -284,6 +289,164 @@ def next_status(
 
 
 # ============================================================
+# PAYLOAD NORMALIZATION
+# ============================================================
+
+def payload_dict(
+    value,
+) -> dict:
+
+    if isinstance(
+        value,
+        dict,
+    ):
+
+        return dict(
+            value
+        )
+
+    if isinstance(
+        value,
+        str,
+    ):
+
+        try:
+            parsed = json.loads(
+                value
+            )
+
+        except json.JSONDecodeError:
+            return {}
+
+        if isinstance(
+            parsed,
+            dict,
+        ):
+            return parsed
+
+    return {}
+
+
+# ============================================================
+# EVIDENCE METADATA
+# ============================================================
+
+def add_evidence_metadata(
+    payload: dict,
+    guard: dict,
+    period_start: date,
+    period_end: date,
+    *,
+    resolution_blocked: bool,
+    resolution_decision: str,
+) -> dict:
+    """Attach lifecycle evidence without replacing KPI evidence."""
+
+    enriched = dict(
+        payload
+    )
+
+    enriched.update(
+        {
+            "evidence_status":
+                guard.get(
+                    "evidence_status"
+                ),
+
+            "resolution_allowed":
+                bool(
+                    guard.get(
+                        "resolution_allowed"
+                    )
+                ),
+
+            "required_datasets":
+                list(
+                    guard.get(
+                        "required_datasets",
+                        [],
+                    )
+                ),
+
+            "blocking_datasets":
+                list(
+                    guard.get(
+                        "blocking_datasets",
+                        [],
+                    )
+                ),
+
+            "resolution_blocked":
+                resolution_blocked,
+
+            "resolution_decision":
+                resolution_decision,
+
+            "evidence_reference_period": {
+                "start":
+                    period_start.isoformat(),
+
+                "end":
+                    period_end.isoformat(),
+            },
+
+            "evidence_reference_data_through":
+                guard.get(
+                    "reference_data_through"
+                ),
+
+            "evidence_guard":
+                guard,
+        }
+    )
+
+    return enriched
+
+
+# ============================================================
+# DISAPPEARED-INSIGHT RESOLUTION DECISION
+# ============================================================
+
+def evaluate_disappeared_insight_resolution(
+    existing: dict,
+    freshness_report: dict,
+) -> dict:
+    """
+    Decide whether disappearance of a signal may resolve an insight.
+
+    The absence of a current-period signal is only evidence of
+    resolution when every data domain required by the insight's
+    primary metric is current for the analytical reference period.
+    """
+
+    metric = str(
+        existing.get(
+            "primary_metric"
+        )
+        or
+        ""
+    )
+
+    guard = (
+        evaluate_metric_evidence(
+            metric,
+            freshness_report,
+        )
+    )
+
+    return {
+        **guard,
+
+        "should_resolve":
+            bool(
+                guard.get(
+                    "resolution_allowed"
+                )
+            ),
+    }
+
+
+# ============================================================
 # SYNC BUSINESS INSIGHTS
 # ============================================================
 
@@ -293,7 +456,16 @@ def sync_business_insights(
     period_end: date,
     comparison_start: date,
     comparison_end: date,
+    freshness_report: dict | None = None,
 ) -> dict[str, dict]:
+
+    if freshness_report is None:
+        freshness_report = (
+            get_data_freshness_report(
+                reference_date=
+                    period_end
+            )
+        )
 
     priority_items = (
         list(
@@ -362,8 +534,39 @@ def sync_business_insights(
                 .first()
             )
 
+            guard = (
+                evaluate_metric_evidence(
+                    priority[
+                        "primary_metric"
+                    ],
+                    freshness_report,
+                )
+            )
+
+            priority_payload = (
+                add_evidence_metadata(
+                    payload=
+                        priority,
+
+                    guard=
+                        guard,
+
+                    period_start=
+                        period_start,
+
+                    period_end=
+                        period_end,
+
+                    resolution_blocked=
+                        False,
+
+                    resolution_decision=
+                        "signal_detected_current_cycle",
+                )
+            )
+
             payload_json = json.dumps(
-                priority,
+                priority_payload,
                 default=str,
             )
 
@@ -699,7 +902,7 @@ def sync_business_insights(
             )
 
         # ----------------------------------------------------
-        # RESOLVE INSIGHTS THAT DISAPPEARED
+        # EVALUATE INSIGHTS THAT DISAPPEARED
         # ----------------------------------------------------
 
         active_rows = (
@@ -707,7 +910,7 @@ def sync_business_insights(
                 text(
                     """
                     SELECT
-                        fingerprint
+                        *
                     FROM
                         analytics.business_insights
                     WHERE
@@ -717,19 +920,138 @@ def sync_business_insights(
                     """
                 )
             )
-            .scalars()
+            .mappings()
             .all()
         )
 
-        for fingerprint in (
+        for active_row in (
             active_rows
         ):
+
+            fingerprint = str(
+                active_row[
+                    "fingerprint"
+                ]
+            )
 
             if fingerprint in (
                 seen_fingerprints
             ):
 
                 continue
+
+            existing_dict = dict(
+                active_row
+            )
+
+            resolution = (
+                evaluate_disappeared_insight_resolution(
+                    existing=
+                        existing_dict,
+
+                    freshness_report=
+                        freshness_report,
+                )
+            )
+
+            existing_payload = (
+                payload_dict(
+                    active_row.get(
+                        "payload"
+                    )
+                )
+            )
+
+            # ------------------------------------------------
+            # REQUIRED EVIDENCE IS NOT CURRENT
+            # ------------------------------------------------
+
+            if not resolution[
+                "should_resolve"
+            ]:
+
+                guarded_payload = (
+                    add_evidence_metadata(
+                        payload=
+                            existing_payload,
+
+                        guard=
+                            resolution,
+
+                        period_start=
+                            period_start,
+
+                        period_end=
+                            period_end,
+
+                        resolution_blocked=
+                            True,
+
+                        resolution_decision=
+                            "blocked_by_noncurrent_evidence",
+                    )
+                )
+
+                connection.execute(
+                    text(
+                        """
+                        UPDATE
+                            analytics.business_insights
+
+                        SET
+                            payload =
+                                CAST(
+                                    :payload
+                                    AS JSONB
+                                ),
+
+                            updated_at =
+                                NOW()
+
+                        WHERE
+                            fingerprint =
+                                :fingerprint;
+                        """
+                    ),
+                    {
+                        "fingerprint":
+                            fingerprint,
+
+                        "payload":
+                            json.dumps(
+                                guarded_payload,
+                                default=str,
+                            ),
+                    },
+                )
+
+                continue
+
+            # ------------------------------------------------
+            # REQUIRED EVIDENCE IS CURRENT
+            # ------------------------------------------------
+
+            resolved_payload = (
+                add_evidence_metadata(
+                    payload=
+                        existing_payload,
+
+                    guard=
+                        resolution,
+
+                    period_start=
+                        period_start,
+
+                    period_end=
+                        period_end,
+
+                    resolution_blocked=
+                        False,
+
+                    resolution_decision=
+                        "resolved_after_current_evidence",
+                )
+            )
 
             connection.execute(
                 text(
@@ -744,6 +1066,12 @@ def sync_business_insights(
                         resolved_at =
                             NOW(),
 
+                        payload =
+                            CAST(
+                                :payload
+                                AS JSONB
+                            ),
+
                         updated_at =
                             NOW()
 
@@ -755,6 +1083,12 @@ def sync_business_insights(
                 {
                     "fingerprint":
                         fingerprint,
+
+                    "payload":
+                        json.dumps(
+                            resolved_payload,
+                            default=str,
+                        ),
                 },
             )
 
