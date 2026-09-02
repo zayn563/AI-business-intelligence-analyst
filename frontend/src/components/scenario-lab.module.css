@@ -1,0 +1,470 @@
+.root {
+    --scenario-background: #f5f8f6;
+    --scenario-panel: #ffffff;
+    --scenario-panel-soft: #edf3ef;
+    --scenario-panel-strong: #e4eee8;
+    --scenario-border: #d4dfd8;
+    --scenario-text: #10251c;
+    --scenario-muted: #536a5f;
+    --scenario-accent: #0f6e49;
+    --scenario-accent-strong: #084a32;
+    --scenario-highlight: #bbf54d;
+    --scenario-danger: #b42318;
+    --scenario-danger-background: #fff1f0;
+    --scenario-slider: #97c8ff;
+
+    min-height: calc(100vh - 72px);
+    padding: 38px 24px 72px;
+    background: var(--scenario-background);
+    color: var(--scenario-text);
+}
+
+
+:global(html[data-theme="dark"]) .root {
+    --scenario-background: #09130e;
+    --scenario-panel: #10231a;
+    --scenario-panel-soft: #182d23;
+    --scenario-panel-strong: #1d3529;
+    --scenario-border: #315244;
+    --scenario-text: #f6fbf8;
+    --scenario-muted: #bfd3c8;
+    --scenario-accent: #63e6a6;
+    --scenario-accent-strong: #d3ffe8;
+    --scenario-highlight: #bbf54d;
+    --scenario-danger: #ffaaa3;
+    --scenario-danger-background: #341715;
+    --scenario-slider: #91c5ff;
+}
+
+
+.hero,
+.scopePanel,
+.modelGrid,
+.errorBanner {
+    width: min(1320px, 100%);
+    margin-inline: auto;
+}
+
+
+.hero {
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--scenario-border);
+}
+
+
+.eyebrow {
+    margin: 0 0 8px;
+    color: var(--scenario-muted);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+
+.hero h1 {
+    margin: 0;
+    color: var(--scenario-text);
+    font-size: clamp(2rem, 4vw, 3.4rem);
+    line-height: 1.05;
+    letter-spacing: -0.04em;
+}
+
+
+.heroCopy {
+    max-width: 760px;
+    margin: 12px 0 0;
+    color: var(--scenario-muted);
+    font-size: 1.04rem;
+    line-height: 1.65;
+}
+
+
+.scopePanel {
+    display: grid;
+    grid-template-columns: minmax(280px, 0.9fr) minmax(320px, 1.4fr);
+    gap: 24px;
+    margin-top: 32px;
+    padding: 24px;
+    border: 1px solid var(--scenario-border);
+    border-radius: 18px;
+    background: var(--scenario-panel);
+}
+
+
+.scopeSelector {
+    padding-right: 24px;
+    border-right: 1px solid var(--scenario-border);
+}
+
+
+.scopeSelector label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--scenario-muted);
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+
+.scopeSelector select {
+    width: 100%;
+    min-height: 48px;
+    padding: 0 14px;
+    border: 1px solid var(--scenario-border);
+    border-radius: 10px;
+    outline: none;
+    background: var(--scenario-panel-soft);
+    color: var(--scenario-text);
+    font: inherit;
+    font-weight: 700;
+}
+
+
+.scopeSelector select:focus {
+    border-color: var(--scenario-accent);
+    box-shadow: 0 0 0 3px rgb(15 110 73 / 16%);
+}
+
+
+.scopeSummary h2 {
+    margin: 0 0 4px;
+    color: var(--scenario-text);
+    font-size: 1.45rem;
+}
+
+
+.scopeSummary > p:last-child {
+    margin: 0;
+    color: var(--scenario-muted);
+    line-height: 1.5;
+}
+
+
+.contextGrid {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+
+.contextCard {
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--scenario-panel-soft);
+}
+
+
+.contextCard span {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--scenario-muted);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+
+.contextCard strong {
+    display: block;
+    color: var(--scenario-text);
+    font-size: 0.88rem;
+}
+
+
+.errorBanner {
+    margin-top: 18px;
+    padding: 14px 16px;
+    border: 1px solid color-mix(
+        in srgb,
+        var(--scenario-danger) 55%,
+        transparent
+    );
+    border-radius: 10px;
+    background: var(--scenario-danger-background);
+    color: var(--scenario-danger);
+    font-weight: 700;
+}
+
+
+.modelGrid {
+    display: grid;
+    grid-template-columns: minmax(320px, 0.85fr) minmax(450px, 1.15fr);
+    gap: 20px;
+    margin-top: 20px;
+}
+
+
+.leverPanel,
+.resultPanel {
+    border: 1px solid var(--scenario-border);
+    border-radius: 18px;
+    background: var(--scenario-panel);
+}
+
+
+.leverPanel {
+    padding: 26px;
+}
+
+
+.resultPanel {
+    padding: 28px;
+}
+
+
+.leverPanel h2,
+.resultPanel h2 {
+    margin: 0 0 24px;
+    color: var(--scenario-text);
+    font-size: 1.55rem;
+}
+
+
+.sliderGroup {
+    margin-bottom: 25px;
+}
+
+
+.sliderHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 9px;
+}
+
+
+.sliderHeader label {
+    color: var(--scenario-text);
+    font-size: 0.88rem;
+    font-weight: 750;
+}
+
+
+.sliderHeader strong {
+    color: var(--scenario-text);
+    font-size: 0.88rem;
+}
+
+
+.slider {
+    width: 100%;
+    accent-color: var(--scenario-slider);
+    cursor: pointer;
+}
+
+
+.slider:disabled {
+    cursor: wait;
+    opacity: 0.65;
+}
+
+
+.buttonRow {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    margin-top: 30px;
+}
+
+
+.primaryButton,
+.secondaryButton {
+    min-height: 48px;
+    border-radius: 10px;
+    font: inherit;
+    font-weight: 850;
+    cursor: pointer;
+    transition:
+        transform 120ms ease,
+        opacity 120ms ease,
+        background 120ms ease;
+}
+
+
+.primaryButton {
+    border: 1px solid var(--scenario-accent-strong);
+    background: var(--scenario-accent-strong);
+    color: var(--scenario-panel);
+}
+
+
+:global(html[data-theme="dark"]) .primaryButton {
+    background: #0a4a32;
+    border-color: #176d4d;
+    color: #ffffff;
+}
+
+
+.secondaryButton {
+    padding-inline: 20px;
+    border: 1px solid var(--scenario-border);
+    background: var(--scenario-panel-soft);
+    color: var(--scenario-text);
+}
+
+
+.primaryButton:hover:not(:disabled),
+.secondaryButton:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+
+.primaryButton:disabled,
+.secondaryButton:disabled {
+    cursor: wait;
+    opacity: 0.62;
+}
+
+
+.resultGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+
+.resultCard {
+    min-width: 0;
+    padding: 19px 18px;
+    border-radius: 13px;
+    background: var(--scenario-panel-soft);
+}
+
+
+.resultCard span {
+    display: block;
+    margin-bottom: 7px;
+    color: var(--scenario-muted);
+    font-size: 0.76rem;
+}
+
+
+.resultCard strong {
+    display: block;
+    overflow-wrap: anywhere;
+    color: var(--scenario-text);
+    font-size: clamp(1.55rem, 2.5vw, 2rem);
+    line-height: 1.05;
+}
+
+
+.resultCard small {
+    display: block;
+    margin-top: 9px;
+    color: var(--scenario-muted);
+    font-size: 0.74rem;
+    font-weight: 700;
+}
+
+
+.baselineTitle {
+    margin: 25px 0 10px;
+    color: var(--scenario-muted);
+    font-size: 0.74rem;
+    font-weight: 850;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+
+.baselineGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+
+.baselineGrid > div {
+    padding: 12px;
+    border-radius: 9px;
+    background: var(--scenario-panel-strong);
+}
+
+
+.baselineGrid span {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--scenario-muted);
+    font-size: 0.66rem;
+    font-weight: 750;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+
+.baselineGrid strong {
+    display: block;
+    color: var(--scenario-text);
+    font-size: 0.88rem;
+}
+
+
+.disclaimer {
+    margin: 18px 0 0;
+    color: var(--scenario-muted);
+    font-size: 0.78rem;
+    line-height: 1.5;
+}
+
+
+.loadingPanel,
+.errorPanel {
+    width: min(900px, 100%);
+    margin: 50px auto;
+    padding: 28px;
+    border: 1px solid var(--scenario-border);
+    border-radius: 16px;
+    background: var(--scenario-panel);
+    color: var(--scenario-text);
+}
+
+
+.errorPanel p {
+    margin-bottom: 0;
+    color: var(--scenario-muted);
+}
+
+
+@media (max-width: 900px) {
+    .scopePanel {
+        grid-template-columns: 1fr;
+    }
+
+    .scopeSelector {
+        padding-right: 0;
+        padding-bottom: 20px;
+        border-right: 0;
+        border-bottom: 1px solid var(--scenario-border);
+    }
+
+    .modelGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .contextGrid,
+    .resultGrid,
+    .baselineGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+@media (max-width: 600px) {
+    .root {
+        padding-inline: 14px;
+    }
+
+    .scopePanel,
+    .leverPanel,
+    .resultPanel {
+        padding: 18px;
+    }
+
+    .buttonRow {
+        grid-template-columns: 1fr;
+    }
+}

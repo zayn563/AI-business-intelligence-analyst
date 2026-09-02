@@ -23,6 +23,10 @@ from ..analyst.recommendation_service import (
     is_recommendation_question,
 )
 
+from ..analyst.recommendation_focus_guard import (
+    apply_recommendation_focus_guard,
+)
+
 
 # ============================================================
 # ROUTER
@@ -399,6 +403,12 @@ def ask_analyst_endpoint(
                 )
             )
 
+            result = (
+                apply_recommendation_focus_guard(
+                    result
+                )
+            )
+
             return (
                 normalize_execution_metadata(
                     result
@@ -513,6 +523,12 @@ def analyst_recommendations(
             build_recommendation_response(
                 question=question,
                 limit=limit,
+            )
+        )
+
+        result = (
+            apply_recommendation_focus_guard(
+                result
             )
         )
 

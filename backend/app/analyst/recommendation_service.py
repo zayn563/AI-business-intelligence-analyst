@@ -1,28 +1,16 @@
 from __future__ import annotations
 
 import json
-
-from datetime import (
-    date,
-    timedelta,
-)
-
+from datetime import date, timedelta
 from decimal import Decimal
-
 from time import perf_counter
-
 from typing import Any
-
 from uuid import uuid4
 
 from sqlalchemy import text
 
 from ..database import engine
 
-
-# ============================================================
-# RECOMMENDATION QUESTION PHRASES
-# ============================================================
 
 RECOMMENDATION_PHRASES = (
     "how can we improve",
@@ -52,56 +40,19 @@ RECOMMENDATION_PHRASES = (
 )
 
 
-# ============================================================
-# METRIC LABELS
-# ============================================================
-
 METRIC_LABELS = {
-    "net_sales":
-        "net sales",
-
-    "units_sold":
-        "units sold",
-
-    "transactions":
-        "transactions",
-
-    "gross_profit":
-        "gross profit",
-
-    "margin_pct":
-        "gross margin",
-
-    "avg_selling_price":
-        "average selling price",
-
-    "discount_pct":
-        "discount rate",
-
-    "cost_per_unit":
-        "cost per unit",
-
-    "stockout_rate":
-        "stockout rate",
-
-    "target_attainment":
-        "target attainment",
+    "net_sales": "net sales",
+    "units_sold": "units sold",
+    "transactions": "transactions",
+    "gross_profit": "gross profit",
+    "margin_pct": "gross margin",
+    "avg_selling_price": "average selling price",
+    "discount_pct": "discount rate",
+    "cost_per_unit": "cost per unit",
+    "stockout_rate": "stockout rate",
+    "target_attainment": "target attainment",
 }
 
-
-# ============================================================
-# METRIC FAMILIES
-#
-# These let questions such as:
-#
-# "South margin deterioration"
-#
-# match a persisted:
-#
-# primary_metric = gross_profit
-#
-# without also bringing in unrelated target misses.
-# ============================================================
 
 PROFITABILITY_METRICS = {
     "gross_profit",
@@ -124,27 +75,287 @@ VOLUME_METRICS = {
     "transactions",
 }
 
-SALES_METRICS = {
-    "net_sales",
-    "units_sold",
-    "transactions",
-    "target_attainment",
+
+POLICIES = {
+    "growth": {
+        "management_focus": (
+            "Protect and selectively scale the proven growth driver "
+            "while preserving margin and availability."
+        ),
+        "actions": [
+            (
+                "Identify the products, stores and channels "
+                "contributing most to the growth."
+            ),
+            (
+                "Validate that the growth is supported by healthy "
+                "margin, availability and repeatable demand rather "
+                "than a one-off effect."
+            ),
+            (
+                "Scale the strongest commercial pattern selectively "
+                "and monitor whether the uplift persists in the next "
+                "period."
+            ),
+        ],
+        "expected_kpis": [
+            "net_sales",
+            "units_sold",
+            "gross_profit",
+            "margin_pct",
+            "stockout_rate",
+        ],
+        "action_type": "growth",
+    },
+
+    "target": {
+        "management_focus": (
+            "Close the highest-value target gap before expanding "
+            "activity elsewhere."
+        ),
+        "actions": [
+            (
+                "Identify the products, stores or channels "
+                "contributing most to the target shortfall."
+            ),
+            (
+                "Prioritize recovery activity against the largest "
+                "commercially relevant gaps."
+            ),
+            (
+                "Track target attainment, net sales and units "
+                "after each intervention."
+            ),
+        ],
+        "expected_kpis": [
+            "target_attainment",
+            "net_sales",
+            "units_sold",
+        ],
+        "action_type": "recovery",
+    },
+
+    "availability": {
+        "management_focus": (
+            "Restore availability before adding incremental "
+            "demand pressure."
+        ),
+        "actions": [
+            (
+                "Identify the products and stores contributing most "
+                "to the availability deterioration."
+            ),
+            (
+                "Review replenishment cadence and inventory coverage "
+                "for the affected area."
+            ),
+            (
+                "Track stockout rate, units and net sales after "
+                "availability actions are implemented."
+            ),
+        ],
+        "expected_kpis": [
+            "stockout_rate",
+            "units_sold",
+            "net_sales",
+        ],
+        "action_type": "recovery",
+    },
+
+    "profitability": {
+        "management_focus": (
+            "Protect profitability by isolating the commercial "
+            "sources of margin and profit pressure."
+        ),
+        "actions": [
+            (
+                "Identify products, stores and channels with the "
+                "largest contribution to profit or margin "
+                "deterioration."
+            ),
+            (
+                "Review discount intensity, selling price and cost "
+                "pressure before taking broad pricing action."
+            ),
+            (
+                "Use Scenario Lab to test commercially realistic "
+                "recovery options and track gross profit and margin "
+                "after execution."
+            ),
+        ],
+        "expected_kpis": [
+            "gross_profit",
+            "margin_pct",
+            "discount_pct",
+            "avg_selling_price",
+            "cost_per_unit",
+        ],
+        "action_type": "profitability",
+    },
+
+    "promotion": {
+        "management_focus": (
+            "Protect profitable promotional growth rather than "
+            "optimizing volume alone."
+        ),
+        "actions": [
+            (
+                "Compare promotional volume uplift with revenue "
+                "and margin quality."
+            ),
+            (
+                "Identify where the promotion generated incremental "
+                "demand rather than simple discounting."
+            ),
+            (
+                "Scale the mechanic selectively where the commercial "
+                "evidence remains positive."
+            ),
+        ],
+        "expected_kpis": [
+            "units_sold",
+            "net_sales",
+            "margin_pct",
+            "discount_pct",
+        ],
+        "action_type": "growth",
+    },
+
+    "pricing": {
+        "management_focus": (
+            "Determine whether pricing is supporting revenue without "
+            "damaging underlying demand."
+        ),
+        "actions": [
+            (
+                "Compare selling-price movement with units and "
+                "transaction trends."
+            ),
+            (
+                "Identify whether the effect is concentrated in "
+                "specific products or channels."
+            ),
+            (
+                "Monitor revenue and margin quality before extending "
+                "the pricing approach."
+            ),
+        ],
+        "expected_kpis": [
+            "avg_selling_price",
+            "units_sold",
+            "net_sales",
+            "transactions",
+            "margin_pct",
+        ],
+        "action_type": "pricing",
+    },
+
+    "volume_recovery": {
+        "management_focus": (
+            "Recover underlying demand or execution volume before "
+            "relying on price to offset the decline."
+        ),
+        "actions": [
+            (
+                "Identify the products, stores and channels driving "
+                "the largest volume decline."
+            ),
+            (
+                "Separate demand weakness from execution and "
+                "availability problems."
+            ),
+            (
+                "Track units, transactions and net sales through "
+                "the recovery period."
+            ),
+        ],
+        "expected_kpis": [
+            "units_sold",
+            "transactions",
+            "net_sales",
+        ],
+        "action_type": "recovery",
+    },
+
+    "investigation": {
+        "management_focus": (
+            "Decompose the issue into volume, price, availability, "
+            "discount and cost drivers before taking broad action."
+        ),
+        "actions": [
+            (
+                "Investigate the largest contributors behind the "
+                "priority issue."
+            ),
+            (
+                "Separate demand, pricing, availability and "
+                "profitability effects."
+            ),
+            (
+                "Create an owned action only after the dominant "
+                "driver is supported by evidence."
+            ),
+        ],
+        "expected_kpis": [
+            "net_sales",
+            "units_sold",
+            "margin_pct",
+            "stockout_rate",
+        ],
+        "action_type": "investigation",
+    },
 }
 
 
-# ============================================================
-# BASIC HELPERS
-# ============================================================
+def _policy(
+    name: str,
+) -> dict:
+
+    source = (
+        POLICIES[
+            name
+        ]
+    )
+
+    return {
+        "management_focus":
+            source[
+                "management_focus"
+            ],
+
+        "actions":
+            list(
+                source[
+                    "actions"
+                ]
+            ),
+
+        "expected_kpis":
+            list(
+                source[
+                    "expected_kpis"
+                ]
+            ),
+
+        "action_type":
+            source[
+                "action_type"
+            ],
+    }
+
 
 def _normalize_text(
     value: Any,
 ) -> str:
 
     if value is None:
+
         return ""
 
     return (
-        str(value)
+        str(
+            value
+        )
         .strip()
         .lower()
     )
@@ -154,13 +365,15 @@ def _safe_float(
     value: Any,
 ) -> float | None:
 
-    if value is None:
-        return None
-
-    if isinstance(
-        value,
-        bool,
+    if (
+        value is None
+        or
+        isinstance(
+            value,
+            bool,
+        )
     ):
+
         return None
 
     if isinstance(
@@ -171,6 +384,7 @@ def _safe_float(
             Decimal,
         ),
     ):
+
         return float(
             value
         )
@@ -178,7 +392,9 @@ def _safe_float(
     try:
 
         return float(
-            str(value)
+            str(
+                value
+            )
         )
 
     except (
@@ -207,7 +423,10 @@ def _json_safe(
         date,
     ):
 
-        return value.isoformat()
+        return (
+            value
+            .isoformat()
+        )
 
     if isinstance(
         value,
@@ -215,10 +434,13 @@ def _json_safe(
     ):
 
         return {
-            str(key):
+            str(
+                key
+            ):
                 _json_safe(
                     item
                 )
+
             for (
                 key,
                 item,
@@ -245,10 +467,6 @@ def _json_safe(
     return value
 
 
-# ============================================================
-# QUESTION CLASSIFICATION
-# ============================================================
-
 def is_recommendation_question(
     question: str,
 ) -> bool:
@@ -260,19 +478,23 @@ def is_recommendation_question(
     )
 
     if not normalized:
+
         return False
 
     if any(
         phrase
         in normalized
+
         for phrase
         in RECOMMENDATION_PHRASES
     ):
+
         return True
 
     improvement_language = any(
         phrase
         in normalized
+
         for phrase
         in (
             "improve sales",
@@ -293,6 +515,7 @@ def is_recommendation_question(
     business_scope = any(
         phrase
         in normalized
+
         for phrase
         in (
             "region",
@@ -315,10 +538,6 @@ def is_recommendation_question(
     )
 
 
-# ============================================================
-# QUESTION MODE
-# ============================================================
-
 def _is_attention_question(
     question: str,
 ) -> bool:
@@ -332,6 +551,7 @@ def _is_attention_question(
     return any(
         phrase
         in normalized
+
         for phrase
         in (
             "require attention",
@@ -362,6 +582,7 @@ def _is_opportunity_question(
     opportunity_language = any(
         phrase
         in normalized
+
         for phrase
         in (
             "growth opportunity",
@@ -385,9 +606,127 @@ def _is_opportunity_question(
     )
 
 
-# ============================================================
-# CURRENT DATA PERIOD
-# ============================================================
+def _question_focus(
+    question: str,
+) -> str | None:
+
+    normalized = (
+        _normalize_text(
+            question
+        )
+    )
+
+    if any(
+        phrase
+        in normalized
+
+        for phrase
+        in (
+            "stockout",
+            "stock out",
+            "availability",
+            "out of stock",
+        )
+    ):
+
+        return (
+            "availability"
+        )
+
+    if any(
+        phrase
+        in normalized
+
+        for phrase
+        in (
+            "margin",
+            "profitability",
+            "gross profit",
+            "profit decline",
+            "profit deterioration",
+        )
+    ):
+
+        return (
+            "profitability"
+        )
+
+    if (
+        "target"
+        in normalized
+    ):
+
+        return (
+            "target"
+        )
+
+    if any(
+        phrase
+        in normalized
+
+        for phrase
+        in (
+            "volume",
+            "units",
+            "transactions",
+        )
+    ):
+
+        return (
+            "volume"
+        )
+
+    if any(
+        phrase
+        in normalized
+
+        for phrase
+        in (
+            "sales",
+            "revenue",
+        )
+    ):
+
+        return (
+            "sales"
+        )
+
+    return None
+
+
+def _metric_hint(
+    question: str,
+) -> str | None:
+
+    focus = (
+        _question_focus(
+            question
+        )
+    )
+
+    metric_lookup = {
+        "availability":
+            "stockout_rate",
+
+        "profitability":
+            "margin_pct",
+
+        "target":
+            "target_attainment",
+
+        "volume":
+            "units_sold",
+
+        "sales":
+            "net_sales",
+    }
+
+    return (
+        metric_lookup.get(
+            focus
+        )
+    )
+
 
 def _get_latest_data_date() -> date | None:
 
@@ -468,10 +807,6 @@ def _month_context() -> dict:
     }
 
 
-# ============================================================
-# AVAILABLE REGIONS
-# ============================================================
-
 def get_available_regions() -> list[str]:
 
     query = text(
@@ -490,7 +825,10 @@ def get_available_regions() -> list[str]:
     with engine.connect() as connection:
 
         return [
-            str(value)
+            str(
+                value
+            )
+
             for value
             in (
                 connection
@@ -556,6 +894,7 @@ def find_requested_region(
             region
         ):
             region
+
         for region
         in available_regions
     }
@@ -579,141 +918,6 @@ def find_requested_region(
     return None
 
 
-# ============================================================
-# QUESTION FOCUS
-# ============================================================
-
-def _question_focus(
-    question: str,
-) -> str | None:
-
-    normalized = (
-        _normalize_text(
-            question
-        )
-    )
-
-    if any(
-        phrase
-        in normalized
-        for phrase
-        in (
-            "stockout",
-            "stock out",
-            "availability",
-            "out of stock",
-        )
-    ):
-
-        return "availability"
-
-    if any(
-        phrase
-        in normalized
-        for phrase
-        in (
-            "margin",
-            "profitability",
-            "gross profit",
-            "profit decline",
-            "profit deterioration",
-        )
-    ):
-
-        return "profitability"
-
-    if (
-        "target"
-        in normalized
-    ):
-
-        return "target"
-
-    if any(
-        phrase
-        in normalized
-        for phrase
-        in (
-            "volume",
-            "units",
-            "transactions",
-        )
-    ):
-
-        return "volume"
-
-    if any(
-        phrase
-        in normalized
-        for phrase
-        in (
-            "sales",
-            "revenue",
-        )
-    ):
-
-        return "sales"
-
-    return None
-
-
-def _metric_hint(
-    question: str,
-) -> str | None:
-
-    focus = (
-        _question_focus(
-            question
-        )
-    )
-
-    if (
-        focus
-        ==
-        "availability"
-    ):
-
-        return "stockout_rate"
-
-    if (
-        focus
-        ==
-        "profitability"
-    ):
-
-        return "margin_pct"
-
-    if (
-        focus
-        ==
-        "target"
-    ):
-
-        return "target_attainment"
-
-    if (
-        focus
-        ==
-        "volume"
-    ):
-
-        return "units_sold"
-
-    if (
-        focus
-        ==
-        "sales"
-    ):
-
-        return "net_sales"
-
-    return None
-
-
-# ============================================================
-# LOAD ACTIVE PERSISTED INSIGHTS
-# ============================================================
-
 def load_active_insights(
     limit: int = 100,
 ) -> list[dict]:
@@ -721,7 +925,9 @@ def load_active_insights(
     safe_limit = max(
         1,
         min(
-            int(limit),
+            int(
+                limit
+            ),
             500,
         ),
     )
@@ -765,15 +971,13 @@ def load_active_insights(
         )
 
     return [
-        dict(row)
+        dict(
+            row
+        )
         for row
         in rows
     ]
 
-
-# ============================================================
-# PAYLOAD NORMALIZATION
-# ============================================================
 
 def _payload_dict(
     insight: dict,
@@ -799,8 +1003,10 @@ def _payload_dict(
 
         try:
 
-            parsed = json.loads(
-                payload
+            parsed = (
+                json.loads(
+                    payload
+                )
             )
 
             if isinstance(
@@ -816,10 +1022,6 @@ def _payload_dict(
 
     return {}
 
-
-# ============================================================
-# RECURSIVE PAYLOAD SEARCH
-# ============================================================
 
 def _find_value_recursive(
     value: Any,
@@ -843,7 +1045,9 @@ def _find_value_recursive(
         ) in value.items():
 
             if (
-                str(key)
+                str(
+                    key
+                )
                 .lower()
                 in normalized_keys
             ):
@@ -861,7 +1065,9 @@ def _find_value_recursive(
                 )
             )
 
-            if result is not None:
+            if (
+                result is not None
+            ):
 
                 return result
 
@@ -879,7 +1085,9 @@ def _find_value_recursive(
                 )
             )
 
-            if result is not None:
+            if (
+                result is not None
+            ):
 
                 return result
 
@@ -894,7 +1102,9 @@ def _find_numeric(
     value = (
         _find_value_recursive(
             payload,
-            set(keys),
+            set(
+                keys
+            ),
         )
     )
 
@@ -913,39 +1123,39 @@ def _find_text(
     value = (
         _find_value_recursive(
             payload,
-            set(keys),
+            set(
+                keys
+            ),
         )
     )
 
-    if value is None:
-
-        return None
-
-    if isinstance(
-        value,
-        (
-            dict,
-            list,
-        ),
+    if (
+        value is None
+        or
+        isinstance(
+            value,
+            (
+                dict,
+                list,
+            ),
+        )
     ):
 
         return None
 
-    text_value = (
-        str(value)
+    result = (
+        str(
+            value
+        )
         .strip()
     )
 
-    if not text_value:
+    return (
+        result
+        or
+        None
+    )
 
-        return None
-
-    return text_value
-
-
-# ============================================================
-# INSIGHT TYPE HELPERS
-# ============================================================
 
 def _is_opportunity(
     insight: dict,
@@ -1002,10 +1212,6 @@ def _is_risk(
     )
 
 
-# ============================================================
-# DIAGNOSIS EXTRACTION
-# ============================================================
-
 def _diagnosis(
     insight: dict,
     payload: dict,
@@ -1022,7 +1228,7 @@ def _diagnosis(
 
     if payload_diagnosis:
 
-        normalized = (
+        return (
             payload_diagnosis
             .strip()
             .lower()
@@ -1035,8 +1241,6 @@ def _diagnosis(
                 "_",
             )
         )
-
-        return normalized
 
     fingerprint = (
         _normalize_text(
@@ -1089,23 +1293,27 @@ def _diagnosis(
     )
 
 
-# ============================================================
-# EVIDENCE FORMATTING
-# ============================================================
-
 def _format_pct_change(
     label: str,
     value: float,
 ) -> str:
 
-    if value > 0:
+    if (
+        value
+        >
+        0
+    ):
 
         return (
             f"{label} increased "
             f"{abs(value):.2f}%."
         )
 
-    if value < 0:
+    if (
+        value
+        <
+        0
+    ):
 
         return (
             f"{label} declined "
@@ -1122,14 +1330,22 @@ def _format_pp_change(
     value: float,
 ) -> str:
 
-    if value > 0:
+    if (
+        value
+        >
+        0
+    ):
 
         return (
             f"{label} increased "
             f"{abs(value):.2f} pp."
         )
 
-    if value < 0:
+    if (
+        value
+        <
+        0
+    ):
 
         return (
             f"{label} declined "
@@ -1198,7 +1414,10 @@ def _build_evidence(
         )
     )
 
-    if metric_change is not None:
+    if (
+        metric_change
+        is not None
+    ):
 
         evidence.append(
             _format_pct_change(
@@ -1215,7 +1434,8 @@ def _build_evidence(
     )
 
     if (
-        units_change is not None
+        units_change
+        is not None
         and
         primary_metric
         !=
@@ -1237,7 +1457,10 @@ def _build_evidence(
         )
     )
 
-    if stockout_change is not None:
+    if (
+        stockout_change
+        is not None
+    ):
 
         evidence.append(
             _format_pp_change(
@@ -1254,7 +1477,10 @@ def _build_evidence(
         )
     )
 
-    if margin_change is not None:
+    if (
+        margin_change
+        is not None
+    ):
 
         evidence.append(
             _format_pp_change(
@@ -1271,7 +1497,10 @@ def _build_evidence(
         )
     )
 
-    if discount_change is not None:
+    if (
+        discount_change
+        is not None
+    ):
 
         evidence.append(
             _format_pp_change(
@@ -1288,7 +1517,10 @@ def _build_evidence(
         )
     )
 
-    if achievement is not None:
+    if (
+        achievement
+        is not None
+    ):
 
         evidence.append(
             (
@@ -1320,7 +1552,8 @@ def _build_evidence(
     if (
         severity
         and
-        priority_score is not None
+        priority_score
+        is not None
     ):
 
         evidence.append(
@@ -1340,19 +1573,38 @@ def _build_evidence(
             )
         )
 
-    return evidence[
-        :5
-    ]
+    return (
+        evidence[
+            :5
+        ]
+    )
 
-
-# ============================================================
-# RECOMMENDATION POLICY
-# ============================================================
 
 def _recommendation_policy(
     insight: dict,
     diagnosis: str,
+    question_focus: str | None = None,
 ) -> dict:
+    """
+    Return the deterministic management-action policy.
+
+    Important precedence rule:
+
+    A user's explicit profitability focus must win over a
+    generic opportunity/growth classification.
+
+    Example:
+
+        "What should we do about South margin deterioration?"
+
+    can legitimately select a profitability-related persisted
+    insight that is currently classified as an opportunity
+    because performance has improved.
+
+    The recommendation still needs to answer the user's
+    profitability question rather than changing the requested
+    action family to generic growth.
+    """
 
     title = (
         _normalize_text(
@@ -1394,17 +1646,30 @@ def _recommendation_policy(
         f"{insight_type}"
     )
 
-    # --------------------------------------------------------
-    # OPPORTUNITIES FIRST
+    # ========================================================
+    # EXPLICIT QUESTION FOCUS OVERRIDE
     #
-    # This must happen before generic "volume" rules.
+    # This is the regression fix for the remaining test.
+    # ========================================================
+
+    if (
+        question_focus
+        ==
+        "profitability"
+    ):
+
+        return (
+            _policy(
+                "profitability"
+            )
+        )
+
+    # ========================================================
+    # TRUE GROWTH OPPORTUNITY
     #
-    # Otherwise:
-    #
-    # volume_led_growth
-    #
-    # incorrectly matches the old volume-decline policy.
-    # --------------------------------------------------------
+    # This remains before generic volume-recovery rules so
+    # North growth opportunities still return growth actions.
+    # ========================================================
 
     if (
         _is_opportunity(
@@ -1419,87 +1684,22 @@ def _recommendation_policy(
         }
     ):
 
-        return {
-            "management_focus":
-                (
-                    "Protect and selectively scale the "
-                    "proven growth driver while preserving "
-                    "margin and availability."
-                ),
-
-            "actions": [
-                (
-                    "Identify the products, stores and "
-                    "channels contributing most to the growth."
-                ),
-                (
-                    "Validate that the growth is supported by "
-                    "healthy margin, availability and repeatable "
-                    "demand rather than a one-off effect."
-                ),
-                (
-                    "Scale the strongest commercial pattern "
-                    "selectively and monitor whether the uplift "
-                    "persists in the next period."
-                ),
-            ],
-
-            "expected_kpis": [
-                "net_sales",
-                "units_sold",
-                "gross_profit",
-                "margin_pct",
-                "stockout_rate",
-            ],
-
-            "action_type":
-                "growth",
-        }
-
-    # --------------------------------------------------------
-    # TARGET MISS
-    # --------------------------------------------------------
+        return (
+            _policy(
+                "growth"
+            )
+        )
 
     if (
         "target"
         in combined
     ):
 
-        return {
-            "management_focus":
-                (
-                    "Close the highest-value target gap before "
-                    "expanding activity elsewhere."
-                ),
-
-            "actions": [
-                (
-                    "Identify the products, stores or channels "
-                    "contributing most to the target shortfall."
-                ),
-                (
-                    "Prioritize recovery activity against the "
-                    "largest commercially relevant gaps."
-                ),
-                (
-                    "Track target attainment, net sales and "
-                    "units after each intervention."
-                ),
-            ],
-
-            "expected_kpis": [
-                "target_attainment",
-                "net_sales",
-                "units_sold",
-            ],
-
-            "action_type":
-                "recovery",
-        }
-
-    # --------------------------------------------------------
-    # AVAILABILITY
-    # --------------------------------------------------------
+        return (
+            _policy(
+                "target"
+            )
+        )
 
     if (
         "availability"
@@ -1509,46 +1709,11 @@ def _recommendation_policy(
         in combined
     ):
 
-        return {
-            "management_focus":
-                (
-                    "Restore availability before adding "
-                    "incremental demand pressure."
-                ),
-
-            "actions": [
-                (
-                    "Identify the products and stores "
-                    "contributing most to the availability "
-                    "deterioration."
-                ),
-                (
-                    "Review replenishment cadence and inventory "
-                    "coverage for the affected area."
-                ),
-                (
-                    "Track stockout rate, units and net sales "
-                    "after availability actions are implemented."
-                ),
-            ],
-
-            "expected_kpis": [
-                "stockout_rate",
-                "units_sold",
-                "net_sales",
-            ],
-
-            "action_type":
-                "recovery",
-        }
-
-    # --------------------------------------------------------
-    # PROFITABILITY
-    #
-    # gross_profit is intentionally included so a persisted
-    # "South profit decline" does not fall into the generic
-    # mixed/unexplained policy.
-    # --------------------------------------------------------
+        return (
+            _policy(
+                "availability"
+            )
+        )
 
     if (
         "margin"
@@ -1570,221 +1735,61 @@ def _recommendation_policy(
         in combined
     ):
 
-        return {
-            "management_focus":
-                (
-                    "Protect profitability by isolating the "
-                    "commercial sources of margin and profit "
-                    "pressure."
-                ),
-
-            "actions": [
-                (
-                    "Identify products, stores and channels "
-                    "with the largest contribution to profit "
-                    "or margin deterioration."
-                ),
-                (
-                    "Review discount intensity, selling price "
-                    "and cost pressure before taking broad "
-                    "pricing action."
-                ),
-                (
-                    "Use Scenario Lab to test commercially "
-                    "realistic recovery options and track "
-                    "gross profit and margin after execution."
-                ),
-            ],
-
-            "expected_kpis": [
-                "gross_profit",
-                "margin_pct",
-                "discount_pct",
-                "avg_selling_price",
-                "cost_per_unit",
-            ],
-
-            "action_type":
-                "profitability",
-        }
-
-    # --------------------------------------------------------
-    # PROMOTION
-    # --------------------------------------------------------
+        return (
+            _policy(
+                "profitability"
+            )
+        )
 
     if (
         "promotion"
         in combined
     ):
 
-        return {
-            "management_focus":
-                (
-                    "Protect profitable promotional growth "
-                    "rather than optimizing volume alone."
-                ),
-
-            "actions": [
-                (
-                    "Compare promotional volume uplift with "
-                    "revenue and margin quality."
-                ),
-                (
-                    "Identify where the promotion generated "
-                    "incremental demand rather than simple "
-                    "discounting."
-                ),
-                (
-                    "Scale the mechanic selectively where the "
-                    "commercial evidence remains positive."
-                ),
-            ],
-
-            "expected_kpis": [
-                "units_sold",
-                "net_sales",
-                "margin_pct",
-                "discount_pct",
-            ],
-
-            "action_type":
-                "growth",
-        }
-
-    # --------------------------------------------------------
-    # PRICE
-    # --------------------------------------------------------
+        return (
+            _policy(
+                "promotion"
+            )
+        )
 
     if (
         "pricing_change"
         in combined
     ):
 
-        return {
-            "management_focus":
-                (
-                    "Determine whether pricing is supporting "
-                    "revenue without damaging underlying demand."
-                ),
-
-            "actions": [
-                (
-                    "Compare selling-price movement with units "
-                    "and transaction trends."
-                ),
-                (
-                    "Identify whether the effect is concentrated "
-                    "in specific products or channels."
-                ),
-                (
-                    "Monitor revenue and margin quality before "
-                    "extending the pricing approach."
-                ),
-            ],
-
-            "expected_kpis": [
-                "avg_selling_price",
-                "units_sold",
-                "net_sales",
-                "transactions",
-                "margin_pct",
-            ],
-
-            "action_type":
-                "pricing",
-        }
-
-    # --------------------------------------------------------
-    # VOLUME RISK
-    # --------------------------------------------------------
+        return (
+            _policy(
+                "pricing"
+            )
+        )
 
     if (
         "volume"
         in combined
     ):
 
-        return {
-            "management_focus":
-                (
-                    "Recover underlying demand or execution "
-                    "volume before relying on price to offset "
-                    "the decline."
-                ),
+        return (
+            _policy(
+                "volume_recovery"
+            )
+        )
 
-            "actions": [
-                (
-                    "Identify the products, stores and channels "
-                    "driving the largest volume decline."
-                ),
-                (
-                    "Separate demand weakness from execution "
-                    "and availability problems."
-                ),
-                (
-                    "Track units, transactions and net sales "
-                    "through the recovery period."
-                ),
-            ],
+    return (
+        _policy(
+            "investigation"
+        )
+    )
 
-            "expected_kpis": [
-                "units_sold",
-                "transactions",
-                "net_sales",
-            ],
-
-            "action_type":
-                "recovery",
-        }
-
-    # --------------------------------------------------------
-    # GENERIC / MIXED
-    # --------------------------------------------------------
-
-    return {
-        "management_focus":
-            (
-                "Decompose the issue into volume, price, "
-                "availability, discount and cost drivers "
-                "before taking broad action."
-            ),
-
-        "actions": [
-            (
-                "Investigate the largest contributors behind "
-                "the priority issue."
-            ),
-            (
-                "Separate demand, pricing, availability and "
-                "profitability effects."
-            ),
-            (
-                "Create an owned action only after the "
-                "dominant driver is supported by evidence."
-            ),
-        ],
-
-        "expected_kpis": [
-            "net_sales",
-            "units_sold",
-            "margin_pct",
-            "stockout_rate",
-        ],
-
-        "action_type":
-            "investigation",
-    }
-
-
-# ============================================================
-# METRIC-FAMILY MATCHING
-# ============================================================
 
 def _matches_question_focus(
     insight: dict,
     focus: str | None,
 ) -> bool:
 
-    if focus is None:
+    if (
+        focus
+        is None
+    ):
 
         return True
 
@@ -1869,24 +1874,12 @@ def _matches_question_focus(
             in title
         )
 
-    # Generic sales requests are intentionally broad.
-    # We do NOT filter them strictly because profitability,
-    # target and availability issues can all affect sales.
-
-    if (
-        focus
-        ==
-        "sales"
-    ):
-
-        return True
+    # Generic sales questions stay intentionally broad because
+    # profitability, availability and target issues can all
+    # explain sales performance.
 
     return True
 
-
-# ============================================================
-# SEVERITY WEIGHT
-# ============================================================
 
 def _severity_weight(
     insight: dict,
@@ -1921,10 +1914,6 @@ def _severity_weight(
         )
     )
 
-
-# ============================================================
-# INSIGHT SCORING
-# ============================================================
 
 def _ranking_score(
     insight: dict,
@@ -2030,10 +2019,6 @@ def _ranking_score(
     return score
 
 
-# ============================================================
-# SELECT DECISION-RELEVANT INSIGHTS
-# ============================================================
-
 def _select_insights(
     insights: list[dict],
     question: str,
@@ -2062,24 +2047,28 @@ def _select_insights(
         )
     )
 
-    candidates = list(
-        insights
+    candidates = (
+        list(
+            insights
+        )
     )
 
     selection_mode = (
         "general"
     )
 
-    # --------------------------------------------------------
-    # REGION FILTER
-    # --------------------------------------------------------
+    # ========================================================
+    # REGION
+    # ========================================================
 
     if requested_region:
 
-        region_candidates = [
+        regional = [
             insight
+
             for insight
             in candidates
+
             if (
                 _normalize_text(
                     insight.get(
@@ -2088,7 +2077,9 @@ def _select_insights(
                 )
                 ==
                 "region"
+
                 and
+
                 _normalize_text(
                     insight.get(
                         "dimension_value"
@@ -2101,10 +2092,10 @@ def _select_insights(
             )
         ]
 
-        if region_candidates:
+        if regional:
 
             candidates = (
-                region_candidates
+                regional
             )
 
         selection_mode = (
@@ -2116,10 +2107,12 @@ def _select_insights(
         in normalized_question
     ):
 
-        region_candidates = [
+        regional = [
             insight
+
             for insight
             in candidates
+
             if (
                 _normalize_text(
                     insight.get(
@@ -2131,22 +2124,19 @@ def _select_insights(
             )
         ]
 
-        if region_candidates:
+        if regional:
 
             candidates = (
-                region_candidates
+                regional
             )
 
         selection_mode = (
             "regional"
         )
 
-    # --------------------------------------------------------
-    # RISK / OPPORTUNITY MODE
-    #
-    # "regions requiring attention"
-    # must NOT include North growth opportunity.
-    # --------------------------------------------------------
+    # ========================================================
+    # RISK / OPPORTUNITY
+    # ========================================================
 
     if (
         _is_attention_question(
@@ -2154,19 +2144,23 @@ def _select_insights(
         )
     ):
 
-        risk_candidates = [
+        risks = [
             insight
+
             for insight
             in candidates
-            if _is_risk(
-                insight
+
+            if (
+                _is_risk(
+                    insight
+                )
             )
         ]
 
-        if risk_candidates:
+        if risks:
 
             candidates = (
-                risk_candidates
+                risks
             )
 
         selection_mode = (
@@ -2179,35 +2173,32 @@ def _select_insights(
         )
     ):
 
-        opportunity_candidates = [
+        opportunities = [
             insight
+
             for insight
             in candidates
-            if _is_opportunity(
-                insight
+
+            if (
+                _is_opportunity(
+                    insight
+                )
             )
         ]
 
-        if opportunity_candidates:
+        if opportunities:
 
             candidates = (
-                opportunity_candidates
+                opportunities
             )
 
         selection_mode = (
             "growth_opportunity"
         )
 
-    # --------------------------------------------------------
-    # SPECIFIC BUSINESS FOCUS
-    #
-    # For a specific-region question such as:
-    #
-    # "South margin deterioration"
-    #
-    # use profitability-relevant South insights rather than
-    # returning South target miss as well.
-    # --------------------------------------------------------
+    # ========================================================
+    # STRICT BUSINESS FOCUS
+    # ========================================================
 
     strict_focuses = {
         "profitability",
@@ -2221,10 +2212,12 @@ def _select_insights(
         in strict_focuses
     ):
 
-        focused_candidates = [
+        focused = [
             insight
+
             for insight
             in candidates
+
             if (
                 _matches_question_focus(
                     insight,
@@ -2233,26 +2226,26 @@ def _select_insights(
             )
         ]
 
-        if focused_candidates:
+        if focused:
 
             candidates = (
-                focused_candidates
+                focused
             )
 
-    # --------------------------------------------------------
+    # ========================================================
     # RANK
-    # --------------------------------------------------------
+    # ========================================================
 
     ranked = sorted(
         candidates,
-        key=lambda insight: (
-            _ranking_score(
-                insight,
-                question,
-                requested_region,
-                focus,
-            )
-        ),
+        key=
+            lambda insight:
+                _ranking_score(
+                    insight,
+                    question,
+                    requested_region,
+                    focus,
+                ),
         reverse=True,
     )
 
@@ -2277,9 +2270,6 @@ def _select_insights(
                 )
             )
         )
-
-        # For broad regional questions we want one primary
-        # management priority per region.
 
         if (
             not requested_region
@@ -2312,7 +2302,9 @@ def _select_insights(
         )
 
         if (
-            len(selected)
+            len(
+                selected
+            )
             >=
             limit
         ):
@@ -2326,12 +2318,9 @@ def _select_insights(
     )
 
 
-# ============================================================
-# BUILD ONE RECOMMENDATION
-# ============================================================
-
 def _build_recommendation(
     insight: dict,
+    question_focus: str | None = None,
 ) -> dict:
 
     payload = (
@@ -2351,13 +2340,8 @@ def _build_recommendation(
         _recommendation_policy(
             insight,
             diagnosis,
-        )
-    )
-
-    evidence = (
-        _build_evidence(
-            insight,
-            payload,
+            question_focus=
+                question_focus,
         )
     )
 
@@ -2371,37 +2355,6 @@ def _build_recommendation(
         insight.get(
             "dimension_value"
         )
-    )
-
-    severity = (
-        insight.get(
-            "severity"
-        )
-    )
-
-    priority_score = (
-        _safe_float(
-            insight.get(
-                "priority_score"
-            )
-        )
-    )
-
-    lifecycle_status = (
-        insight.get(
-            "lifecycle_status"
-        )
-    )
-
-    title = (
-        str(
-            insight.get(
-                "title"
-            )
-            or
-            "Business priority"
-        )
-        .strip()
     )
 
     action_title_scope = (
@@ -2421,7 +2374,14 @@ def _build_recommendation(
             ),
 
         "title":
-            title,
+            str(
+                insight.get(
+                    "title"
+                )
+                or
+                "Business priority"
+            )
+            .strip(),
 
         "insight_type":
             insight.get(
@@ -2440,13 +2400,21 @@ def _build_recommendation(
             ),
 
         "severity":
-            severity,
+            insight.get(
+                "severity"
+            ),
 
         "priority_score":
-            priority_score,
+            _safe_float(
+                insight.get(
+                    "priority_score"
+                )
+            ),
 
         "lifecycle_status":
-            lifecycle_status,
+            insight.get(
+                "lifecycle_status"
+            ),
 
         "diagnosis":
             diagnosis,
@@ -2457,7 +2425,10 @@ def _build_recommendation(
             ],
 
         "evidence":
-            evidence,
+            _build_evidence(
+                insight,
+                payload,
+            ),
 
         "recommended_actions":
             policy[
@@ -2508,15 +2479,6 @@ def _build_recommendation(
     }
 
 
-# ============================================================
-# ANSWER COMPOSER
-#
-# ASCII punctuation is used intentionally.
-# This avoids the Windows PowerShell mojibake seen as:
-#
-# South â ...
-# ============================================================
-
 def _compose_answer(
     recommendations: list[dict],
     requested_region: str | None,
@@ -2555,14 +2517,20 @@ def _compose_answer(
             )
 
         if (
-            len(recommendations)
+            len(
+                recommendations
+            )
             !=
             1
         ):
 
-            opening += "s"
+            opening += (
+                "s"
+            )
 
-        opening += "."
+        opening += (
+            "."
+        )
 
     else:
 
@@ -2572,8 +2540,10 @@ def _compose_answer(
                     "dimension_value"
                 )
             )
+
             for item
             in recommendations
+
             if (
                 _normalize_text(
                     item.get(
@@ -2582,7 +2552,9 @@ def _compose_answer(
                 )
                 ==
                 "region"
+
                 and
+
                 item.get(
                     "dimension_value"
                 )
@@ -2603,12 +2575,16 @@ def _compose_answer(
             )
 
             if (
-                len(unique_regions)
+                len(
+                    unique_regions
+                )
                 !=
                 1
             ):
 
-                opening += "s"
+                opening += (
+                    "s"
+                )
 
             opening += (
                 " requiring management attention."
@@ -2628,12 +2604,16 @@ def _compose_answer(
             )
 
             if (
-                len(unique_regions)
+                len(
+                    unique_regions
+                )
                 !=
                 1
             ):
 
-                opening += "s"
+                opening += (
+                    "s"
+                )
 
             opening += (
                 " with active growth opportunities."
@@ -2700,7 +2680,7 @@ def _compose_answer(
             ""
         )
 
-        focus = (
+        management_focus = (
             recommendation[
                 "management_focus"
             ]
@@ -2715,7 +2695,9 @@ def _compose_answer(
         )
 
         first_evidence = (
-            evidence_items[0]
+            evidence_items[
+                0
+            ]
             if evidence_items
             else
             (
@@ -2733,17 +2715,19 @@ def _compose_answer(
         )
 
         first_action = (
-            actions[0]
+            actions[
+                0
+            ]
             if actions
             else
-            focus
+            management_focus
         )
 
         sections.append(
             (
                 f"{index}. {scope} "
                 f"({severity}{score_text}): "
-                f"{focus} "
+                f"{management_focus} "
                 f"Evidence: {first_evidence}. "
                 f"Recommended action: {first_action}"
             )
@@ -2755,10 +2739,6 @@ def _compose_answer(
         )
     )
 
-
-# ============================================================
-# PUBLIC RECOMMENDATION ENGINE
-# ============================================================
 
 def build_recommendation_response(
     question: str,
@@ -2772,7 +2752,9 @@ def build_recommendation_response(
     safe_limit = max(
         1,
         min(
-            int(limit),
+            int(
+                limit
+            ),
             10,
         ),
     )
@@ -2795,33 +2777,30 @@ def build_recommendation_response(
         )
     )
 
+    # Calculate once and use consistently for:
+    # - metric intent
+    # - recommendation policy
+    # - response evidence
+
+    question_focus = (
+        _question_focus(
+            question
+        )
+    )
+
     recommendations = [
         _build_recommendation(
-            insight
+            insight,
+            question_focus=
+                question_focus,
         )
+
         for insight
         in selected
     ]
 
     period = (
         _month_context()
-    )
-
-    metric_hint = (
-        _metric_hint(
-            question
-        )
-    )
-
-    response_time_ms = round(
-        (
-            perf_counter()
-            -
-            started_at
-        )
-        *
-        1000,
-        2,
     )
 
     warnings: list[str] = []
@@ -2834,6 +2813,17 @@ def build_recommendation_response(
                 "the recommendation request."
             )
         )
+
+    response_time_ms = round(
+        (
+            perf_counter()
+            -
+            started_at
+        )
+        *
+        1000,
+        2,
+    )
 
     return {
         "status":
@@ -2854,11 +2844,14 @@ def build_recommendation_response(
                 "recommendations",
 
             "metric":
-                metric_hint,
+                _metric_hint(
+                    question
+                ),
 
             "dimension":
                 (
                     "region"
+
                     if (
                         requested_region
                         or
@@ -2867,6 +2860,7 @@ def build_recommendation_response(
                             question
                         )
                     )
+
                     else
                     "overall"
                 ),
@@ -2941,9 +2935,7 @@ def build_recommendation_response(
                 requested_region,
 
             "question_focus":
-                _question_focus(
-                    question
-                ),
+                question_focus,
 
             "active_insights_scanned":
                 len(
