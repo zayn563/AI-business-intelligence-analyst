@@ -2,14 +2,21 @@ from __future__ import annotations
 
 from datetime import (
     date,
-    timedelta,
 )
 
 from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import (
+    text,
+)
 
-from ..database import engine
+from ..database import (
+    engine,
+)
+
+from ..data_quality import (
+    get_data_freshness_report,
+)
 
 from ..decision.brief_service import (
     build_business_brief,
@@ -17,6 +24,10 @@ from ..decision.brief_service import (
 
 from ..decision.insight_service import (
     get_active_insights,
+)
+
+from ..intelligence.intelligence_service import (
+    latest_complete_periods,
 )
 
 from ..intelligence.target_analysis import (
@@ -140,6 +151,48 @@ def shift_month(
     )
 
 
+def unique_text_values(
+    values,
+) -> list[str]:
+
+    result: list[str] = []
+
+    seen: set[str] = set()
+
+    for value in (
+        values
+        or
+        []
+    ):
+
+        text_value = (
+            str(
+                value
+            )
+            .strip()
+        )
+
+        if (
+            not text_value
+            or
+            text_value
+            in
+            seen
+        ):
+
+            continue
+
+        seen.add(
+            text_value
+        )
+
+        result.append(
+            text_value
+        )
+
+    return result
+
+
 # ============================================================
 # LATEST SALES DATE
 # ============================================================
@@ -149,7 +202,9 @@ def get_latest_sales_date() -> date:
     query = text(
         """
         SELECT
-            MAX(date_id)
+            MAX(
+                date_id
+            )
         FROM
             analytics.fact_sales_daily;
         """
@@ -158,7 +213,8 @@ def get_latest_sales_date() -> date:
     with engine.connect() as connection:
 
         latest_date = (
-            connection.execute(
+            connection
+            .execute(
                 query
             )
             .scalar_one()
@@ -186,17 +242,23 @@ def aggregate_period(
         """
         SELECT
             COALESCE(
-                SUM(net_sales),
+                SUM(
+                    net_sales
+                ),
                 0
             ) AS net_sales,
 
             COALESCE(
-                SUM(units_sold),
+                SUM(
+                    units_sold
+                ),
                 0
             ) AS units_sold,
 
             COALESCE(
-                SUM(transactions),
+                SUM(
+                    transactions
+                ),
                 0
             ) AS transactions,
 
@@ -224,7 +286,8 @@ def aggregate_period(
     with engine.connect() as connection:
 
         row = (
-            connection.execute(
+            connection
+            .execute(
                 query,
                 {
                     "start_date":
@@ -286,13 +349,13 @@ def aggregate_period(
         )
         *
         100.0
-        if
-        net_sales
+        if net_sales
         else
         None
     )
 
     return {
+
         "net_sales":
             round(
                 net_sales,
@@ -372,6 +435,7 @@ def comparison_kpi(
         )
 
         return {
+
             "label":
                 label,
 
@@ -404,6 +468,7 @@ def comparison_kpi(
     )
 
     return {
+
         "label":
             label,
 
@@ -455,7 +520,9 @@ def extract_target_rows(
             )
 
             contains_target_data = any(
-                key in value
+                key
+                in
+                value
                 for key
                 in (
                     "actual_sales",
@@ -497,10 +564,8 @@ def extract_target_rows(
         payload
     )
 
-    # --------------------------------------------------------
-    # Payloads can expose the same regional result in multiple
-    # sections. Keep the richest record for each region.
-    # --------------------------------------------------------
+    # The same regional target result can appear in more than
+    # one section. Retain the richest record for each region.
 
     best_by_region: dict[
         str,
@@ -523,7 +588,8 @@ def extract_target_rows(
                 "sales_target",
                 "sales_achievement_pct",
             )
-            if row.get(
+            if
+            row.get(
                 key
             )
             is not None
@@ -551,7 +617,8 @@ def extract_target_rows(
                 "sales_target",
                 "sales_achievement_pct",
             )
-            if current_best.get(
+            if
+            current_best.get(
                 key
             )
             is not None
@@ -647,7 +714,8 @@ def build_target_summary(
         if
         actual_sales is not None
         and
-        sales_target not in {
+        sales_target
+        not in {
             None,
             0,
         }
@@ -670,6 +738,7 @@ def build_target_summary(
     )
 
     return {
+
         "label":
             "Target attainment",
 
@@ -680,8 +749,7 @@ def build_target_summary(
                     1,
                 )
                 if
-                achievement
-                is not None
+                achievement is not None
                 else
                 None
             ),
@@ -693,8 +761,7 @@ def build_target_summary(
                     2,
                 )
                 if
-                actual_sales
-                is not None
+                actual_sales is not None
                 else
                 None
             ),
@@ -706,8 +773,7 @@ def build_target_summary(
                     2,
                 )
                 if
-                sales_target
-                is not None
+                sales_target is not None
                 else
                 None
             ),
@@ -719,8 +785,7 @@ def build_target_summary(
                     2,
                 )
                 if
-                gap
-                is not None
+                gap is not None
                 else
                 None
             ),
@@ -788,7 +853,8 @@ def target_by_region(
             if (
                 actual_sales is not None
                 and
-                sales_target not in {
+                sales_target
+                not in {
                     None,
                     0,
                 }
@@ -812,8 +878,7 @@ def target_by_region(
                 1,
             )
             if
-            achievement
-            is not None
+            achievement is not None
             else
             None
         )
@@ -833,6 +898,13 @@ def monthly_trend(
         shift_month(
             current_month,
             -6,
+        )
+    )
+
+    trend_end = (
+        shift_month(
+            current_month,
+            1,
         )
     )
 
@@ -866,6 +938,11 @@ def monthly_trend(
             >=
             :trend_start
 
+            AND
+            date_id
+            <
+            :trend_end
+
         GROUP BY
             1
 
@@ -877,11 +954,15 @@ def monthly_trend(
     with engine.connect() as connection:
 
         rows = (
-            connection.execute(
+            connection
+            .execute(
                 query,
                 {
                     "trend_start":
                         trend_start,
+
+                    "trend_end":
+                        trend_end,
                 },
             )
             .mappings()
@@ -920,8 +1001,7 @@ def monthly_trend(
             )
             *
             100.0
-            if
-            sales
+            if sales
             else
             None
         )
@@ -952,8 +1032,7 @@ def monthly_trend(
                             2,
                         )
                         if
-                        margin_pct
-                        is not None
+                        margin_pct is not None
                         else
                         None
                     ),
@@ -1022,24 +1101,7 @@ def region_performance(
                     ELSE
                         0
                 END
-            ) AS previous_sales,
-
-            SUM(
-                CASE
-                    WHEN
-                        f.date_id
-                        BETWEEN
-                            :current_start
-                            AND
-                            :current_end
-                    THEN
-                        f.net_sales
-                        -
-                        f.cogs
-                    ELSE
-                        0
-                END
-            ) AS current_gross_profit
+            ) AS previous_sales
 
         FROM
             analytics.fact_sales_daily AS f
@@ -1069,7 +1131,8 @@ def region_performance(
     with engine.connect() as connection:
 
         rows = (
-            connection.execute(
+            connection
+            .execute(
                 query,
                 {
                     "current_start":
@@ -1153,37 +1216,160 @@ def region_performance(
 
 
 # ============================================================
+# EVIDENCE SUMMARY
+# ============================================================
+
+def build_evidence_summary(
+    freshness: dict,
+    active_insights: list[dict],
+) -> dict:
+
+    blocked_insights = [
+        insight
+        for insight
+        in active_insights
+        if insight.get(
+            "resolution_blocked"
+        )
+        is True
+    ]
+
+    freshness_blockers = (
+        freshness.get(
+            "blocking_datasets"
+        )
+        or
+        []
+    )
+
+    insight_blockers: list[str] = []
+
+    for insight in blocked_insights:
+
+        insight_blockers.extend(
+            unique_text_values(
+                insight.get(
+                    "blocking_datasets"
+                )
+                or
+                []
+            )
+        )
+
+    blocking_datasets = (
+        unique_text_values(
+            list(
+                freshness_blockers
+            )
+            +
+            insight_blockers
+        )
+    )
+
+    return {
+
+        "status":
+            freshness.get(
+                "status"
+            ),
+
+        "reference_data_through":
+            freshness.get(
+                "reference_data_through"
+            ),
+
+        "blocking_datasets":
+            blocking_datasets,
+
+        "mixed_period_warning":
+            bool(
+                freshness.get(
+                    "mixed_period_warning",
+                    False,
+                )
+            ),
+
+        "blocked_insight_count":
+            len(
+                blocked_insights
+            ),
+
+        "blocked_risk_count":
+            len(
+                [
+                    insight
+                    for insight
+                    in blocked_insights
+                    if insight.get(
+                        "type"
+                    )
+                    ==
+                    "risk"
+                ]
+            ),
+
+        "blocked_opportunity_count":
+            len(
+                [
+                    insight
+                    for insight
+                    in blocked_insights
+                    if insight.get(
+                        "type"
+                    )
+                    ==
+                    "opportunity"
+                ]
+            ),
+    }
+
+
+# ============================================================
 # READ-ONLY DASHBOARD SUMMARY
 # ============================================================
 
 def get_dashboard_summary() -> dict:
 
+    # --------------------------------------------------------
+    # Raw source freshness.
+    #
+    # data_through describes the latest sales row available.
+    # It is deliberately different from analytical period end.
+    # --------------------------------------------------------
+
     latest_date = (
         get_latest_sales_date()
     )
 
-    current_start = date(
-        latest_date.year,
-        latest_date.month,
-        1,
+    # --------------------------------------------------------
+    # Authoritative completed analytical periods.
+    #
+    # This is the same resolver used by Decision Intelligence.
+    # The dashboard must not independently treat a partial new
+    # month as a completed management cycle.
+    # --------------------------------------------------------
+
+    (
+        current_period,
+        comparison_period,
+    ) = (
+        latest_complete_periods()
+    )
+
+    current_start = (
+        current_period.start
     )
 
     current_end = (
-        latest_date
+        current_period.end
+    )
+
+    comparison_start = (
+        comparison_period.start
     )
 
     comparison_end = (
-        current_start
-        -
-        timedelta(
-            days=1
-        )
-    )
-
-    comparison_start = date(
-        comparison_end.year,
-        comparison_end.month,
-        1,
+        comparison_period.end
     )
 
     current = (
@@ -1201,8 +1387,19 @@ def get_dashboard_summary() -> dict:
     )
 
     # --------------------------------------------------------
-    # Target analysis is deterministic read-only analytics.
-    # It does NOT change insight lifecycle.
+    # Evidence freshness is evaluated against exactly the same
+    # completed period shown to management.
+    # --------------------------------------------------------
+
+    freshness = (
+        get_data_freshness_report(
+            reference_date=
+                current_end
+        )
+    )
+
+    # --------------------------------------------------------
+    # Target analysis remains read-only.
     # --------------------------------------------------------
 
     target_payload = (
@@ -1213,10 +1410,9 @@ def get_dashboard_summary() -> dict:
     )
 
     # --------------------------------------------------------
-    # Crucially: dashboard reads persisted intelligence.
+    # Dashboard reads persisted intelligence only.
     #
     # No detection.
-    # No persistence.
     # No lifecycle mutation.
     # --------------------------------------------------------
 
@@ -1224,7 +1420,7 @@ def get_dashboard_summary() -> dict:
         get_active_insights()
     )
 
-    risks = [
+    all_risks = [
         item
         for item
         in active_insights
@@ -1235,7 +1431,7 @@ def get_dashboard_summary() -> dict:
         "risk"
     ]
 
-    opportunities = [
+    all_opportunities = [
         item
         for item
         in active_insights
@@ -1246,13 +1442,64 @@ def get_dashboard_summary() -> dict:
         "opportunity"
     ]
 
+    current_risks = [
+        item
+        for item
+        in all_risks
+        if item.get(
+            "resolution_blocked"
+        )
+        is not True
+    ]
+
+    blocked_risks = [
+        item
+        for item
+        in all_risks
+        if item.get(
+            "resolution_blocked"
+        )
+        is True
+    ]
+
+    current_opportunities = [
+        item
+        for item
+        in all_opportunities
+        if item.get(
+            "resolution_blocked"
+        )
+        is not True
+    ]
+
+    blocked_opportunities = [
+        item
+        for item
+        in all_opportunities
+        if item.get(
+            "resolution_blocked"
+        )
+        is True
+    ]
+
     brief = (
         build_business_brief(
             active_insights
         )
     )
 
+    evidence = (
+        build_evidence_summary(
+            freshness=
+                freshness,
+
+            active_insights=
+                active_insights,
+        )
+    )
+
     return {
+
         "data_through":
             latest_date,
 
@@ -1272,7 +1519,11 @@ def get_dashboard_summary() -> dict:
                 comparison_end,
         },
 
+        "evidence":
+            evidence,
+
         "kpis": {
+
             "net_sales":
                 comparison_kpi(
                     label=
@@ -1362,23 +1613,48 @@ def get_dashboard_summary() -> dict:
             brief,
 
         "priorities": {
+
             "risk_count":
                 len(
-                    risks
+                    current_risks
+                ),
+
+            "active_risk_count":
+                len(
+                    all_risks
+                ),
+
+            "evidence_blocked_risk_count":
+                len(
+                    blocked_risks
                 ),
 
             "opportunity_count":
                 len(
-                    opportunities
+                    current_opportunities
                 ),
 
+            "active_opportunity_count":
+                len(
+                    all_opportunities
+                ),
+
+            "evidence_blocked_opportunity_count":
+                len(
+                    blocked_opportunities
+                ),
+
+            # Overview shows only genuinely current signals.
+            # Evidence-held prior issues remain visible in the
+            # Priority Center rather than being presented as a
+            # new current-period management signal.
             "risks":
-                risks[
+                current_risks[
                     :3
                 ],
 
             "opportunities":
-                opportunities[
+                current_opportunities[
                     :2
                 ],
         },

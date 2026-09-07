@@ -12,25 +12,17 @@ import type {
 } from "react";
 
 import {
-
     RegionPerformanceChart,
     SalesTrendChart,
-
 } from "@/components/business-charts";
 
 import type {
-
     AnalystResponse,
     BusinessPriority,
     ComparisonKpi,
     DashboardData,
-
 } from "@/lib/types";
 
-
-// ============================================================
-// PROPS
-// ============================================================
 
 type Props = {
 
@@ -89,13 +81,9 @@ function compact(
 ): string {
 
     if (
-        value
-        ===
-        null
+        value === null
         ||
-        value
-        ===
-        undefined
+        value === undefined
     ) {
 
         return "—";
@@ -141,6 +129,40 @@ function humanize(
 }
 
 
+function datasetLabel(
+    value: string,
+): string {
+
+    return humanize(
+        value,
+    );
+}
+
+
+function datasetList(
+    values?: string[] | null,
+): string {
+
+    if (
+        !values
+        ||
+        values.length ===
+            0
+    ) {
+
+        return "None";
+    }
+
+    return values
+        .map(
+            datasetLabel,
+        )
+        .join(
+            ", ",
+        );
+}
+
+
 // ============================================================
 // KPI HELPERS
 // ============================================================
@@ -151,23 +173,19 @@ function kpiValue(
 ): string {
 
     if (
-        key
-        ===
-        "margin_pct"
+        key ===
+            "margin_pct"
         ||
-        key
-        ===
-        "target_attainment"
+        key ===
+            "target_attainment"
     ) {
 
         return (
-            kpi.current
-            !==
-            null
+            kpi.current !==
+                null
             &&
-            kpi.current
-            !==
-            undefined
+            kpi.current !==
+                undefined
                 ?
                 `${kpi.current.toFixed(1)}%`
                 :
@@ -186,13 +204,11 @@ function kpiChange(
 ): string | null {
 
     if (
-        kpi.change_pp
-        !==
-        null
+        kpi.change_pp !==
+            null
         &&
-        kpi.change_pp
-        !==
-        undefined
+        kpi.change_pp !==
+            undefined
     ) {
 
         return (
@@ -202,15 +218,12 @@ function kpiChange(
         );
     }
 
-
     if (
-        kpi.change_pct
-        !==
-        null
+        kpi.change_pct !==
+            null
         &&
-        kpi.change_pct
-        !==
-        undefined
+        kpi.change_pct !==
+            undefined
     ) {
 
         return (
@@ -229,8 +242,7 @@ function kpiClass(
 ): string {
 
     if (
-        kpi.direction
-        ===
+        kpi.direction ===
         "increase"
     ) {
 
@@ -238,8 +250,7 @@ function kpiClass(
     }
 
     if (
-        kpi.direction
-        ===
+        kpi.direction ===
         "decrease"
     ) {
 
@@ -247,6 +258,113 @@ function kpiClass(
     }
 
     return "change-neutral";
+}
+
+
+// ============================================================
+// EVIDENCE HELPERS
+// ============================================================
+
+function priorityEvidenceLabel(
+    priority:
+        BusinessPriority,
+): string {
+
+    if (
+        priority
+            .resolution_blocked
+    ) {
+
+        return "Evidence pending";
+    }
+
+    if (
+        priority
+            .evidence_status
+    ) {
+
+        return humanize(
+            priority
+                .evidence_status,
+        );
+    }
+
+    return "Evidence current";
+}
+
+
+function priorityEvidenceClass(
+    priority:
+        BusinessPriority,
+): string {
+
+    if (
+        priority
+            .resolution_blocked
+    ) {
+
+        return (
+            "evidence-state-badge "
+            +
+            "evidence-state-pending"
+        );
+    }
+
+    const status = (
+        priority
+            .evidence_status
+        ??
+        ""
+    )
+        .toLowerCase();
+
+    if (
+        status.includes(
+            "current",
+        )
+        ||
+        status.includes(
+            "complete",
+        )
+        ||
+        status.includes(
+            "ready",
+        )
+    ) {
+
+        return (
+            "evidence-state-badge "
+            +
+            "evidence-state-current"
+        );
+    }
+
+    if (
+        status.includes(
+            "stale",
+        )
+        ||
+        status.includes(
+            "missing",
+        )
+        ||
+        status.includes(
+            "blocked",
+        )
+    ) {
+
+        return (
+            "evidence-state-badge "
+            +
+            "evidence-state-pending"
+        );
+    }
+
+    return (
+        "evidence-state-badge "
+        +
+        "evidence-state-neutral"
+    );
 }
 
 
@@ -264,10 +382,8 @@ function PriorityCard(
 ) {
 
     const risk =
-        priority.type
-        ===
+        priority.type ===
         "risk";
-
 
     return (
 
@@ -294,7 +410,6 @@ function PriorityCard(
                                 "priority-type opportunity"
                         }
                     >
-
                         {
                             risk
                                 ?
@@ -302,16 +417,13 @@ function PriorityCard(
                                 :
                                 "Opportunity"
                         }
-
                     </div>
-
 
                     <h3>
                         {priority.title}
                     </h3>
 
                 </div>
-
 
                 <strong
                     className={
@@ -322,73 +434,121 @@ function PriorityCard(
                             "primary-change positive"
                     }
                 >
-
                     {
-                        priority.primary_change
+                        priority
+                            .primary_change
                     }
-
                 </strong>
 
             </div>
 
 
-            {
-                priority.lifecycle_status
-                &&
-                (
+            <div className="priority-status-row">
 
-                    <div className="lifecycle-line">
+                {
+                    priority
+                        .lifecycle_status
+                    &&
+                    (
+                        <div className="lifecycle-line">
 
-                        <span>
-                            Status
-                        </span>
+                            <span>
+                                Status
+                            </span>
 
-                        <strong>
-                            {
-                                priority.lifecycle_status
-                            }
-                        </strong>
+                            <strong>
+                                {
+                                    priority
+                                        .lifecycle_status
+                                }
+                            </strong>
 
-                    </div>
+                        </div>
+                    )
+                }
 
-                )
-            }
+                <span
+                    className={
+                        priorityEvidenceClass(
+                            priority,
+                        )
+                    }
+                >
+                    {
+                        priorityEvidenceLabel(
+                            priority,
+                        )
+                    }
+                </span>
+
+            </div>
 
 
             <div className="evidence-row">
 
                 {
-                    priority.evidence.map(
-                        (
-                            evidence,
-                        ) => (
+                    priority
+                        .evidence
+                        .map(
+                            (
+                                evidence,
+                            ) => (
 
-                            <div
-                                className="evidence-chip"
-                                key={
-                                    evidence.metric
-                                }
-                            >
-
-                                <span>
-                                    {
-                                        evidence.label
+                                <div
+                                    className="evidence-chip"
+                                    key={
+                                        evidence
+                                            .metric
                                     }
-                                </span>
+                                >
 
-                                <strong>
-                                    {
-                                        evidence.change
-                                    }
-                                </strong>
+                                    <span>
+                                        {
+                                            evidence
+                                                .label
+                                        }
+                                    </span>
 
-                            </div>
+                                    <strong>
+                                        {
+                                            evidence
+                                                .change
+                                        }
+                                    </strong>
 
-                        ),
-                    )
+                                </div>
+                            ),
+                        )
                 }
 
             </div>
+
+
+            {
+                priority
+                    .resolution_blocked
+                &&
+                (
+                    <div className="priority-evidence-warning">
+
+                        <strong>
+                            Resolution held
+                        </strong>
+
+                        <span>
+                            Required current evidence:
+                            {" "}
+                            {
+                                datasetList(
+                                    priority
+                                        .blocking_datasets,
+                                )
+                            }
+                        </span>
+
+                    </div>
+                )
+            }
 
 
             <div className="driver-line">
@@ -400,7 +560,8 @@ function PriorityCard(
                 <strong>
                     {
                         humanize(
-                            priority.diagnosis,
+                            priority
+                                .diagnosis,
                         )
                     }
                 </strong>
@@ -425,21 +586,18 @@ function PriorityCard(
 
 
             {
-                priority.insight_id
+                priority
+                    .insight_id
                 ?
                 (
-
                     <Link
                         className="investigate-button"
                         href={
                             `/investigate/${priority.insight_id}`
                         }
                     >
-
                         Open investigation →
-
                     </Link>
-
                 )
                 :
                 null
@@ -451,7 +609,7 @@ function PriorityCard(
 
 
 // ============================================================
-// MAIN COMPONENT
+// DASHBOARD
 // ============================================================
 
 export default function DashboardClient(
@@ -463,7 +621,6 @@ export default function DashboardClient(
     const summary =
         initialData.summary;
 
-
     const [
         question,
         setQuestion,
@@ -471,7 +628,6 @@ export default function DashboardClient(
         useState(
             "",
         );
-
 
     const [
         analystResult,
@@ -482,7 +638,6 @@ export default function DashboardClient(
         >(
             null,
         );
-
 
     const [
         loading,
@@ -516,28 +671,21 @@ export default function DashboardClient(
     }
 
 
-    // ========================================================
-    // ANALYST
-    // ========================================================
-
     async function askAnalyst(
         override?: string,
     ) {
 
-        const finalQuestion =
-            (
-                override
-                ??
-                question
-            )
+        const finalQuestion = (
+            override
+            ??
+            question
+        )
             .trim();
-
 
         if (!finalQuestion) {
 
             return;
         }
-
 
         setQuestion(
             finalQuestion,
@@ -550,7 +698,6 @@ export default function DashboardClient(
         setAnalystResult(
             null,
         );
-
 
         try {
 
@@ -576,11 +723,9 @@ export default function DashboardClient(
                     },
                 );
 
-
             const payload = (
                 await response.json()
             ) as AnalystResponse;
-
 
             setAnalystResult(
                 payload,
@@ -606,10 +751,6 @@ export default function DashboardClient(
         void askAnalyst();
     }
 
-
-    // ========================================================
-    // KPI COLLECTION
-    // ========================================================
 
     const kpis = [
 
@@ -665,9 +806,67 @@ export default function DashboardClient(
     ];
 
 
-    // ========================================================
-    // UI
-    // ========================================================
+    const currentRiskCount = (
+        summary
+            .brief
+            .current_risk_count
+        ??
+        summary
+            .brief
+            .risk_count
+    );
+
+
+    const blockedRiskCount = (
+        summary
+            .brief
+            .evidence_blocked_risk_count
+        ??
+        summary
+            .priorities
+            .evidence_blocked_risk_count
+        ??
+        0
+    );
+
+
+    const currentOpportunityCount = (
+        summary
+            .brief
+            .current_opportunity_count
+        ??
+        summary
+            .brief
+            .opportunity_count
+    );
+
+
+    const evidence =
+        summary.evidence;
+
+
+    const evidenceStatus = (
+        evidence
+            ?.status
+        ??
+        (
+            blockedRiskCount >
+            0
+                ?
+                "mixed"
+                :
+                "current"
+        )
+    );
+
+
+    const evidenceBlockers = (
+        evidence
+            ?.blocking_datasets
+        ??
+        []
+    );
+
 
     return (
 
@@ -682,24 +881,17 @@ export default function DashboardClient(
                 <div>
 
                     <span className="eyebrow">
-
                         COMMERCIAL DECISION INTELLIGENCE
-
                     </span>
 
-
                     <h1>
-
                         AI Business Intelligence Analyst
-
                     </h1>
 
-
                     <p>
-
-                        Monitor the business, understand what matters
-                        and move from diagnosis to action.
-
+                        Detect what changed, verify whether the evidence
+                        is decision-ready and move management from
+                        diagnosis to action.
                     </p>
 
                 </div>
@@ -714,7 +906,8 @@ export default function DashboardClient(
                     <strong>
                         {
                             formatDate(
-                                summary.data_through,
+                                summary
+                                    .data_through,
                             )
                         }
                     </strong>
@@ -725,7 +918,7 @@ export default function DashboardClient(
 
 
             {/* =================================================
-                BUSINESS BRIEF
+                MANAGEMENT ATTENTION
             ================================================= */}
 
             <section className="morning-brief">
@@ -733,7 +926,7 @@ export default function DashboardClient(
                 <div className="brief-summary">
 
                     <span className="section-kicker">
-                        BUSINESS BRIEF
+                        MANAGEMENT ATTENTION
                     </span>
 
                     <h2>
@@ -745,20 +938,18 @@ export default function DashboardClient(
                     </h2>
 
 
-                    <div className="brief-counts">
+                    <div className="brief-counts management-counts">
 
                         <div>
 
                             <strong>
                                 {
-                                    summary
-                                        .brief
-                                        .risk_count
+                                    currentRiskCount
                                 }
                             </strong>
 
                             <span>
-                                active risks
+                                current risks
                             </span>
 
                         </div>
@@ -768,9 +959,22 @@ export default function DashboardClient(
 
                             <strong>
                                 {
-                                    summary
-                                        .brief
-                                        .opportunity_count
+                                    blockedRiskCount
+                                }
+                            </strong>
+
+                            <span>
+                                awaiting evidence
+                            </span>
+
+                        </div>
+
+
+                        <div>
+
+                            <strong>
+                                {
+                                    currentOpportunityCount
                                 }
                             </strong>
 
@@ -787,9 +991,7 @@ export default function DashboardClient(
                         href="/priorities"
                         className="brief-all-link"
                     >
-
-                        View all priorities →
-
+                        View priority center →
                     </Link>
 
                 </div>
@@ -801,15 +1003,50 @@ export default function DashboardClient(
                         .recommended_focus
                     &&
                     (
-
                         <div className="brief-focus">
 
-                            <span>
-                                Recommended management focus
-                            </span>
+                            <div className="brief-focus-topline">
+
+                                <span>
+                                    Recommended management focus
+                                </span>
+
+                                <span
+                                    className={
+                                        summary
+                                            .brief
+                                            .recommended_focus
+                                            ?.resolution_blocked
+                                            ?
+                                            (
+                                                "evidence-state-badge "
+                                                +
+                                                "evidence-state-pending"
+                                            )
+                                            :
+                                            (
+                                                "evidence-state-badge "
+                                                +
+                                                "evidence-state-current"
+                                            )
+                                    }
+                                >
+                                    {
+                                        summary
+                                            .brief
+                                            .recommended_focus
+                                            ?.resolution_blocked
+                                            ?
+                                            "Evidence pending"
+                                            :
+                                            "Evidence current"
+                                    }
+                                </span>
+
+                            </div>
 
 
-                            <strong>
+                            <strong className="brief-focus-title">
                                 {
                                     summary
                                         .brief
@@ -817,6 +1054,16 @@ export default function DashboardClient(
                                         ?.title
                                 }
                             </strong>
+
+
+                            <p className="brief-focus-reason">
+                                {
+                                    summary
+                                        .brief
+                                        .recommended_focus
+                                        ?.reason
+                                }
+                            </p>
 
 
                             <p>
@@ -836,22 +1083,17 @@ export default function DashboardClient(
                                     ?.insight_id
                                 &&
                                 (
-
                                     <Link
                                         href={
                                             `/investigate/${summary.brief.recommended_focus.insight_id}`
                                         }
                                     >
-
                                         Investigate priority →
-
                                     </Link>
-
                                 )
                             }
 
                         </div>
-
                     )
                 }
 
@@ -859,7 +1101,104 @@ export default function DashboardClient(
 
 
             {/* =================================================
-                KPI
+                DECISION EVIDENCE
+            ================================================= */}
+
+            <section className="decision-evidence-panel">
+
+                <div className="decision-evidence-copy">
+
+                    <span className="section-kicker">
+                        DECISION EVIDENCE
+                    </span>
+
+                    <h2>
+                        Evidence posture
+                    </h2>
+
+                    <p>
+                        {
+                            blockedRiskCount >
+                            0
+                                ?
+                                (
+                                    `${blockedRiskCount} prior ${
+                                        blockedRiskCount === 1
+                                            ? "issue remains"
+                                            : "issues remain"
+                                    } open because the evidence required to confirm resolution is not current.`
+                                )
+                                :
+                                (
+                                    "No active management issue is currently being held open by missing or stale resolution evidence."
+                                )
+                        }
+                    </p>
+
+                </div>
+
+
+                <div className="decision-evidence-grid">
+
+                    <article>
+
+                        <span>
+                            Overall posture
+                        </span>
+
+                        <strong>
+                            {
+                                humanize(
+                                    evidenceStatus,
+                                )
+                            }
+                        </strong>
+
+                    </article>
+
+
+                    <article>
+
+                        <span>
+                            Blocking datasets
+                        </span>
+
+                        <strong>
+                            {
+                                datasetList(
+                                    evidenceBlockers,
+                                )
+                            }
+                        </strong>
+
+                    </article>
+
+
+                    <article>
+
+                        <span>
+                            Decision period
+                        </span>
+
+                        <strong>
+                            {
+                                formatDate(
+                                    summary
+                                        .current_period
+                                        .end,
+                                )
+                            }
+                        </strong>
+
+                    </article>
+
+                </div>
+
+            </section>
+
+
+            {/* =================================================
+                KPI CONTEXT
             ================================================= */}
 
             <section>
@@ -869,7 +1208,7 @@ export default function DashboardClient(
                     <div>
 
                         <span className="section-kicker">
-                            BUSINESS PERFORMANCE
+                            SUPPORTING PERFORMANCE EVIDENCE
                         </span>
 
                         <h2>
@@ -894,7 +1233,6 @@ export default function DashboardClient(
                                         item.data,
                                     );
 
-
                                 return (
 
                                     <article
@@ -905,60 +1243,46 @@ export default function DashboardClient(
                                     >
 
                                         <span className="business-kpi-label">
-
                                             {
-                                                item.data.label
+                                                item
+                                                    .data
+                                                    .label
                                             }
-
                                         </span>
 
-
                                         <strong className="business-kpi-value">
-
                                             {
                                                 kpiValue(
                                                     item.key,
                                                     item.data,
                                                 )
                                             }
-
                                         </strong>
-
 
                                         {
                                             change
                                             ?
                                             (
-
                                                 <span
                                                     className={
                                                         `business-kpi-change ${kpiClass(item.data)}`
                                                     }
                                                 >
-
                                                     {change}
                                                     {" "}
                                                     vs previous period
-
                                                 </span>
-
                                             )
                                             :
                                             (
-
                                                 <span className="business-kpi-change change-neutral">
-
                                                     Current-period performance
-
                                                 </span>
-
                                             )
                                         }
 
                                     </article>
-
                                 );
-
                             },
                         )
                     }
@@ -969,65 +1293,74 @@ export default function DashboardClient(
 
 
             {/* =================================================
-                RISKS
+                CURRENT RISKS
             ================================================= */}
 
-            <section>
+            {
+                summary
+                    .priorities
+                    .risks
+                    .length
+                >
+                0
+                &&
+                (
+                    <section>
 
-                <div className="section-heading">
+                        <div className="section-heading">
 
-                    <div>
+                            <div>
 
-                        <span className="section-kicker">
-                            WHAT NEEDS ATTENTION
-                        </span>
+                                <span className="section-kicker">
+                                    CURRENT MANAGEMENT RISKS
+                                </span>
 
-                        <h2>
-                            Management priorities
-                        </h2>
+                                <h2>
+                                    What needs attention now
+                                </h2>
 
-                    </div>
-
-
-                    <Link
-                        href="/priorities"
-                        className="section-action-link"
-                    >
-
-                        View priority center →
-
-                    </Link>
-
-                </div>
+                            </div>
 
 
-                <div className="decision-grid">
+                            <Link
+                                href="/priorities"
+                                className="section-action-link"
+                            >
+                                View priority center →
+                            </Link>
 
-                    {
-                        summary
-                            .priorities
-                            .risks
-                            .map(
-                                (
-                                    priority,
-                                ) => (
+                        </div>
 
-                                    <PriorityCard
-                                        key={
-                                            priority.fingerprint
-                                        }
-                                        priority={
-                                            priority
-                                        }
-                                    />
 
-                                ),
-                            )
-                    }
+                        <div className="decision-grid">
 
-                </div>
+                            {
+                                summary
+                                    .priorities
+                                    .risks
+                                    .map(
+                                        (
+                                            priority,
+                                        ) => (
 
-            </section>
+                                            <PriorityCard
+                                                key={
+                                                    priority
+                                                        .fingerprint
+                                                }
+                                                priority={
+                                                    priority
+                                                }
+                                            />
+                                        ),
+                                    )
+                            }
+
+                        </div>
+
+                    </section>
+                )
+            }
 
 
             {/* =================================================
@@ -1043,7 +1376,6 @@ export default function DashboardClient(
                 0
                 &&
                 (
-
                     <section>
 
                         <div className="section-heading">
@@ -1076,13 +1408,13 @@ export default function DashboardClient(
 
                                             <PriorityCard
                                                 key={
-                                                    priority.fingerprint
+                                                    priority
+                                                        .fingerprint
                                                 }
                                                 priority={
                                                     priority
                                                 }
                                             />
-
                                         ),
                                     )
                             }
@@ -1090,7 +1422,6 @@ export default function DashboardClient(
                         </div>
 
                     </section>
-
                 )
             }
 
@@ -1116,9 +1447,7 @@ export default function DashboardClient(
                     </div>
 
                     <span className="chart-help">
-
                         Hover over the charts for detailed values.
-
                     </span>
 
                 </div>
@@ -1143,7 +1472,6 @@ export default function DashboardClient(
                             </div>
 
                         </div>
-
 
                         <SalesTrendChart
                             points={
@@ -1172,7 +1500,6 @@ export default function DashboardClient(
 
                         </div>
 
-
                         <RegionPerformanceChart
                             regions={
                                 summary.regions
@@ -1187,7 +1514,7 @@ export default function DashboardClient(
 
 
             {/* =================================================
-                REGION TABLE
+                REGION DETAIL
             ================================================= */}
 
             <section className="region-detail-panel">
@@ -1201,7 +1528,7 @@ export default function DashboardClient(
                         </span>
 
                         <h2>
-                            Latest month
+                            Latest completed month
                         </h2>
 
                     </div>
@@ -1233,85 +1560,83 @@ export default function DashboardClient(
 
 
                     {
-                        summary.regions.map(
-                            (
-                                region,
-                            ) => (
+                        summary
+                            .regions
+                            .map(
+                                (
+                                    region,
+                                ) => (
 
-                                <div
-                                    className="region-row"
-                                    key={
-                                        region.region
-                                    }
-                                >
-
-                                    <strong>
-                                        {
+                                    <div
+                                        className="region-row"
+                                        key={
                                             region.region
-                                        }
-                                    </strong>
-
-
-                                    <span>
-                                        {
-                                            compact(
-                                                region.net_sales,
-                                            )
-                                        }
-                                    </span>
-
-
-                                    <span
-                                        className={
-                                            (
-                                                region.sales_change_pct
-                                                ??
-                                                0
-                                            )
-                                            >=
-                                            0
-                                                ?
-                                                "table-positive"
-                                                :
-                                                "table-negative"
                                         }
                                     >
 
-                                        {
-                                            region.sales_change_pct
-                                            !==
-                                            null
-                                                ?
-                                                (
-                                                    `${region.sales_change_pct > 0 ? "+" : ""}`
-                                                    +
-                                                    `${region.sales_change_pct.toFixed(1)}%`
+                                        <strong>
+                                            {
+                                                region.region
+                                            }
+                                        </strong>
+
+                                        <span>
+                                            {
+                                                compact(
+                                                    region
+                                                        .net_sales,
                                                 )
-                                                :
-                                                "—"
-                                        }
+                                            }
+                                        </span>
 
-                                    </span>
+                                        <span
+                                            className={
+                                                (
+                                                    region
+                                                        .sales_change_pct
+                                                    ??
+                                                    0
+                                                )
+                                                >=
+                                                0
+                                                    ?
+                                                    "table-positive"
+                                                    :
+                                                    "table-negative"
+                                            }
+                                        >
+                                            {
+                                                region
+                                                    .sales_change_pct
+                                                !==
+                                                null
+                                                    ?
+                                                    (
+                                                        `${region.sales_change_pct > 0 ? "+" : ""}`
+                                                        +
+                                                        `${region.sales_change_pct.toFixed(1)}%`
+                                                    )
+                                                    :
+                                                    "—"
+                                            }
+                                        </span>
 
+                                        <span>
+                                            {
+                                                region
+                                                    .target_attainment_pct
+                                                !==
+                                                null
+                                                    ?
+                                                    `${region.target_attainment_pct.toFixed(1)}%`
+                                                    :
+                                                    "—"
+                                            }
+                                        </span>
 
-                                    <span>
-
-                                        {
-                                            region.target_attainment_pct
-                                            !==
-                                            null
-                                                ?
-                                                `${region.target_attainment_pct.toFixed(1)}%`
-                                                :
-                                                "—"
-                                        }
-
-                                    </span>
-
-                                </div>
-
-                            ),
-                        )
+                                    </div>
+                                ),
+                            )
                     }
 
                 </div>
@@ -1329,17 +1654,13 @@ export default function DashboardClient(
                     ASK YOUR BUSINESS
                 </span>
 
-
                 <h2>
                     Investigate a follow-up question
                 </h2>
 
-
                 <p>
-
                     Use the analyst for questions not already
                     answered by the monitoring and investigation workflow.
-
                 </p>
 
 
@@ -1370,7 +1691,6 @@ export default function DashboardClient(
                         placeholder="Ask a business question..."
                     />
 
-
                     <button
                         type="submit"
                         disabled={
@@ -1379,7 +1699,6 @@ export default function DashboardClient(
                             !question.trim()
                         }
                     >
-
                         {
                             loading
                                 ?
@@ -1387,7 +1706,6 @@ export default function DashboardClient(
                                 :
                                 "Analyze"
                         }
-
                     </button>
 
                 </form>
@@ -1397,13 +1715,9 @@ export default function DashboardClient(
                     loading
                     &&
                     (
-
                         <div className="analysis-loading">
-
                             Analyzing verified business evidence...
-
                         </div>
-
                     )
                 }
 
@@ -1412,7 +1726,6 @@ export default function DashboardClient(
                     analystResult?.answer
                     &&
                     (
-
                         <div className="analysis-result">
 
                             <span>
@@ -1426,7 +1739,6 @@ export default function DashboardClient(
                             </p>
 
                         </div>
-
                     )
                 }
 
@@ -1434,10 +1746,8 @@ export default function DashboardClient(
 
 
             <footer>
-
                 AI Business Intelligence Analyst ·
-                Autonomous decision-intelligence platform
-
+                Evidence-grounded decision intelligence
             </footer>
 
         </main>

@@ -6,17 +6,17 @@ import type {
     ReactNode,
 } from "react";
 
-
 import DevAutoRefresh
     from "@/components/dev-auto-refresh";
 
 import SiteNav
     from "@/components/site-nav";
 
-
 import "./globals.css";
 import "./theme-overrides.css";
 import "./job-ui.css";
+import "./action-panel.css";
+import "./iteration-2.css";
 import "./accessibility-overrides.css";
 
 
@@ -46,13 +46,13 @@ export const metadata:
 
     description:
         (
-            "Autonomous decision-intelligence "
+            "Evidence-grounded decision-intelligence "
             +
-            "platform for monitoring business "
+            "platform for monitoring commercial performance, "
             +
-            "performance, investigating change "
+            "prioritizing material change, investigating "
             +
-            "and supporting management action."
+            "business drivers and supporting management action."
         ),
 };
 
@@ -100,6 +100,7 @@ const themeBootstrap = `
 
 
 interface RootLayoutProps {
+
     children:
         ReactNode;
 }
@@ -112,26 +113,34 @@ export default function RootLayout(
 ) {
 
     return (
+
         <html
             lang="en"
             suppressHydrationWarning
         >
+
             <head>
+
                 <script
                     dangerouslySetInnerHTML={{
                         __html:
                             themeBootstrap,
                     }}
                 />
+
             </head>
 
+
             <body>
+
                 <SiteNav />
 
                 {children}
 
                 <DevAutoRefresh />
+
             </body>
+
         </html>
     );
 }

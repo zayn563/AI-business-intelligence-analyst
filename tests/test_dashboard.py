@@ -1,3 +1,7 @@
+from datetime import (
+    date,
+)
+
 from fastapi.testclient import (
     TestClient,
 )
@@ -55,52 +59,87 @@ def test_dashboard_summary():
         response.json()
     )
 
+    expected = {
+        "data_through",
+        "current_period",
+        "comparison_period",
+        "evidence",
+        "kpis",
+        "brief",
+        "priorities",
+        "trend",
+        "regions",
+    }
+
     assert (
-        "data_through"
-        in
-        payload
+        expected
+        .issubset(
+            set(
+                payload.keys()
+            )
+        )
+    )
+
+
+# ============================================================
+# ANALYTICAL PERIOD CONTRACT
+# ============================================================
+
+def test_dashboard_uses_completed_period():
+
+    prepare_intelligence()
+
+    payload = (
+        client.get(
+            "/intelligence/dashboard-summary"
+        )
+        .json()
+    )
+
+    current_start = (
+        date.fromisoformat(
+            payload[
+                "current_period"
+            ][
+                "start"
+            ]
+        )
+    )
+
+    current_end = (
+        date.fromisoformat(
+            payload[
+                "current_period"
+            ][
+                "end"
+            ]
+        )
+    )
+
+    data_through = (
+        date.fromisoformat(
+            payload[
+                "data_through"
+            ]
+        )
     )
 
     assert (
-        "current_period"
-        in
-        payload
+        current_start.day
+        ==
+        1
     )
 
     assert (
-        "comparison_period"
-        in
-        payload
+        current_end
+        >=
+        current_start
     )
 
     assert (
-        "kpis"
-        in
-        payload
-    )
-
-    assert (
-        "brief"
-        in
-        payload
-    )
-
-    assert (
-        "priorities"
-        in
-        payload
-    )
-
-    assert (
-        "trend"
-        in
-        payload
-    )
-
-    assert (
-        "regions"
-        in
-        payload
+        current_end
+        <=
+        data_through
     )
 
 
@@ -153,6 +192,62 @@ def test_dashboard_kpis():
 
 
 # ============================================================
+# EVIDENCE CONTRACT
+# ============================================================
+
+def test_dashboard_evidence_contract():
+
+    prepare_intelligence()
+
+    payload = (
+        client.get(
+            "/intelligence/dashboard-summary"
+        )
+        .json()
+    )
+
+    evidence = (
+        payload[
+            "evidence"
+        ]
+    )
+
+    expected = {
+        "status",
+        "reference_data_through",
+        "blocking_datasets",
+        "mixed_period_warning",
+        "blocked_insight_count",
+        "blocked_risk_count",
+        "blocked_opportunity_count",
+    }
+
+    assert (
+        expected
+        .issubset(
+            set(
+                evidence.keys()
+            )
+        )
+    )
+
+    assert isinstance(
+        evidence[
+            "blocking_datasets"
+        ],
+        list,
+    )
+
+    assert (
+        evidence[
+            "blocked_insight_count"
+        ]
+        >=
+        0
+    )
+
+
+# ============================================================
 # PRIORITY CONTRACT
 # ============================================================
 
@@ -178,16 +273,24 @@ def test_dashboard_priorities():
         ]
     )
 
-    assert (
-        "risks"
-        in
-        priorities
-    )
+    expected = {
+        "risk_count",
+        "active_risk_count",
+        "evidence_blocked_risk_count",
+        "opportunity_count",
+        "active_opportunity_count",
+        "evidence_blocked_opportunity_count",
+        "risks",
+        "opportunities",
+    }
 
     assert (
-        "opportunities"
-        in
-        priorities
+        expected
+        .issubset(
+            set(
+                priorities.keys()
+            )
+        )
     )
 
     assert isinstance(
@@ -202,4 +305,126 @@ def test_dashboard_priorities():
             "opportunities"
         ],
         list,
+    )
+
+    assert (
+        priorities[
+            "risk_count"
+        ]
+        +
+        priorities[
+            "evidence_blocked_risk_count"
+        ]
+        ==
+        priorities[
+            "active_risk_count"
+        ]
+    )
+
+    assert (
+        priorities[
+            "opportunity_count"
+        ]
+        +
+        priorities[
+            "evidence_blocked_opportunity_count"
+        ]
+        ==
+        priorities[
+            "active_opportunity_count"
+        ]
+    )
+
+
+# ============================================================
+# OVERVIEW MUST NOT PRESENT BLOCKED PRIOR ISSUES AS CURRENT
+# ============================================================
+
+def test_dashboard_current_cards_exclude_resolution_blocked():
+
+    prepare_intelligence()
+
+    priorities = (
+        client.get(
+            "/intelligence/dashboard-summary"
+        )
+        .json()[
+            "priorities"
+        ]
+    )
+
+    for insight in (
+        priorities[
+            "risks"
+        ]
+        +
+        priorities[
+            "opportunities"
+        ]
+    ):
+
+        assert (
+            insight.get(
+                "resolution_blocked"
+            )
+            is not
+            True
+        )
+
+
+# ============================================================
+# BRIEF COUNT CONSISTENCY
+# ============================================================
+
+def test_dashboard_brief_counts():
+
+    prepare_intelligence()
+
+    payload = (
+        client.get(
+            "/intelligence/dashboard-summary"
+        )
+        .json()
+    )
+
+    brief = (
+        payload[
+            "brief"
+        ]
+    )
+
+    priorities = (
+        payload[
+            "priorities"
+        ]
+    )
+
+    assert (
+        brief[
+            "current_risk_count"
+        ]
+        ==
+        priorities[
+            "risk_count"
+        ]
+    )
+
+    assert (
+        brief[
+            "evidence_blocked_risk_count"
+        ]
+        ==
+        priorities[
+            "evidence_blocked_risk_count"
+        ]
+    )
+
+    assert (
+        brief[
+            "current_opportunity_count"
+        ]
+        ==
+        priorities[
+            "opportunity_count"
+        ]
     )

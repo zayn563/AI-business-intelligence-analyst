@@ -1,75 +1,114 @@
 export type ComparisonKpi = {
 
-    label: string;
+    label:
+        string;
 
-    current: number | null;
+    current:
+        number | null;
 
-    previous?: number | null;
+    previous?:
+        number | null;
 
-    change_pct?: number | null;
+    change_pct?:
+        number | null;
 
-    change_pp?: number | null;
+    change_pp?:
+        number | null;
 
-    direction?: string;
+    direction?:
+        string;
 
-    unit: string;
+    unit:
+        string;
 
-    actual_sales?: number | null;
+    actual_sales?:
+        number | null;
 
-    sales_target?: number | null;
+    sales_target?:
+        number | null;
 
-    gap?: number | null;
+    gap?:
+        number | null;
 };
 
 
 export type PriorityEvidence = {
 
-    metric: string;
+    metric:
+        string;
 
-    label: string;
+    label:
+        string;
 
-    change: string;
+    change:
+        string;
 
-    direction?: string;
+    direction?:
+        string;
 
-    severity?: string;
+    severity?:
+        string;
 
-    impact?: string;
+    impact?:
+        string;
+};
+
+
+export type EvidenceReferencePeriod = {
+
+    start:
+        string;
+
+    end:
+        string;
 };
 
 
 export type BusinessPriority = {
 
-    insight_id?: number | null;
+    insight_id?:
+        number | null;
 
-    fingerprint: string;
+    fingerprint:
+        string;
 
-    lifecycle_status?: string | null;
+    lifecycle_status?:
+        string | null;
 
     type:
         "risk"
         |
         "opportunity";
 
-    title: string;
+    title:
+        string;
 
-    entity: string;
+    entity:
+        string;
 
-    dimension: string;
+    dimension:
+        string;
 
-    severity: string;
+    severity:
+        string;
 
-    priority_score: number;
+    priority_score:
+        number;
 
-    primary_metric: string;
+    primary_metric:
+        string;
 
-    primary_change: string;
+    primary_change:
+        string;
 
-    direction?: string;
+    direction?:
+        string;
 
-    diagnosis?: string | null;
+    diagnosis?:
+        string | null;
 
-    confidence?: string | null;
+    confidence?:
+        string | null;
 
     evidence:
         PriorityEvidence[];
@@ -79,32 +118,98 @@ export type BusinessPriority = {
 
     analyst_question:
         string;
+
+    evidence_status?:
+        string | null;
+
+    resolution_allowed?:
+        boolean;
+
+    required_datasets?:
+        string[];
+
+    blocking_datasets?:
+        string[];
+
+    resolution_blocked?:
+        boolean;
+
+    resolution_decision?:
+        string | null;
+
+    evidence_reference_period?:
+        EvidenceReferencePeriod | null;
+
+    evidence_reference_data_through?:
+        string | null;
+
+    period_start?:
+        string;
+
+    period_end?:
+        string;
+
+    comparison_start?:
+        string;
+
+    comparison_end?:
+        string;
+
+    first_detected_at?:
+        string | null;
+
+    last_detected_at?:
+        string | null;
+
+    resolved_at?:
+        string | null;
+
+    occurrence_count?:
+        number;
+
+    actual_sales?:
+        number | null;
+
+    sales_target?:
+        number | null;
+
+    sales_gap?:
+        number | null;
 };
 
 
 export type TrendPoint = {
 
-    month: string;
+    month:
+        string;
 
-    net_sales: number;
+    net_sales:
+        number;
 
-    gross_profit: number;
+    gross_profit:
+        number;
 
-    margin_pct: number | null;
+    margin_pct:
+        number | null;
 
-    units_sold: number;
+    units_sold:
+        number;
 };
 
 
 export type RegionPerformance = {
 
-    region: string;
+    region:
+        string;
 
-    net_sales: number;
+    net_sales:
+        number;
 
-    sales_change_pct: number | null;
+    sales_change_pct:
+        number | null;
 
-    target_attainment_pct: number | null;
+    target_attainment_pct:
+        number | null;
 };
 
 
@@ -116,7 +221,25 @@ export type BusinessBrief = {
     risk_count:
         number;
 
+    current_risk_count?:
+        number;
+
+    active_risk_count?:
+        number;
+
+    evidence_blocked_risk_count?:
+        number;
+
     opportunity_count:
+        number;
+
+    current_opportunity_count?:
+        number;
+
+    active_opportunity_count?:
+        number;
+
+    evidence_blocked_opportunity_count?:
         number;
 
     recommended_focus?: {
@@ -132,6 +255,15 @@ export type BusinessBrief = {
 
         insight_id?:
             number | null;
+
+        evidence_status?:
+            string | null;
+
+        resolution_blocked?:
+            boolean;
+
+        blocking_datasets?:
+            string[];
 
     } | null;
 
@@ -149,6 +281,9 @@ export type BusinessBrief = {
 
             status?:
                 string | null;
+
+            resolution_blocked?:
+                boolean;
         }>;
 
     key_opportunities:
@@ -162,7 +297,35 @@ export type BusinessBrief = {
 
             change:
                 string;
+
+            resolution_blocked?:
+                boolean;
         }>;
+};
+
+
+export type DashboardEvidence = {
+
+    status?:
+        string | null;
+
+    reference_data_through?:
+        string | null;
+
+    blocking_datasets:
+        string[];
+
+    mixed_period_warning:
+        boolean;
+
+    blocked_insight_count:
+        number;
+
+    blocked_risk_count:
+        number;
+
+    blocked_opportunity_count:
+        number;
 };
 
 
@@ -172,6 +335,7 @@ export type DashboardSummary = {
         string;
 
     current_period: {
+
         start:
             string;
 
@@ -180,12 +344,16 @@ export type DashboardSummary = {
     };
 
     comparison_period: {
+
         start:
             string;
 
         end:
             string;
     };
+
+    evidence?:
+        DashboardEvidence;
 
     kpis: {
 
@@ -213,7 +381,19 @@ export type DashboardSummary = {
         risk_count:
             number;
 
+        active_risk_count?:
+            number;
+
+        evidence_blocked_risk_count?:
+            number;
+
         opportunity_count:
+            number;
+
+        active_opportunity_count?:
+            number;
+
+        evidence_blocked_opportunity_count?:
             number;
 
         risks:
@@ -306,21 +486,7 @@ export type Recommendation = {
 export type InvestigationResponse = {
 
     insight:
-        BusinessPriority
-        &
-        {
-            period_start?:
-                string;
-
-            period_end?:
-                string;
-
-            comparison_start?:
-                string;
-
-            comparison_end?:
-                string;
-        };
+        BusinessPriority;
 
     period: {
 
@@ -511,6 +677,9 @@ export type RefreshAndAnalyzeResponse = {
                 number;
 
             total?:
+                number;
+
+            resolution_blocked_count?:
                 number;
         };
     };
