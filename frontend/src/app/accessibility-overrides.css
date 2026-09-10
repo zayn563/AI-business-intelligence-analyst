@@ -1,0 +1,260 @@
+/* ============================================================
+   AI BI - ACCESSIBILITY / CONTRAST OVERRIDES
+
+   This file is intentionally additive.
+
+   It should be imported AFTER:
+   - globals.css
+   - theme-overrides.css
+   - job-ui.css
+
+   Purpose:
+   - restore readable secondary text in dark mode
+   - fix Business Brief mini-stat contrast
+   - fix Data Through / freshness-card contrast
+   - retain the existing visual language
+   ============================================================ */
+
+
+/* ============================================================
+   DARK MODE - GENERAL SECONDARY TEXT
+   ============================================================ */
+
+html[data-theme="dark"] body {
+    --aibi-readable-text: #f4faf7;
+    --aibi-readable-muted: #bfd3c9;
+    --aibi-readable-subtle: #a8c2b5;
+    --aibi-readable-surface: #142a20;
+    --aibi-readable-surface-2: #1b3328;
+    --aibi-readable-border: #355548;
+}
+
+
+/*
+   Several existing cards deliberately use smaller typography.
+   Dark mode had inherited overly-low-opacity colors.
+*/
+
+html[data-theme="dark"] body small {
+    color: var(--aibi-readable-muted);
+    opacity: 1;
+}
+
+
+html[data-theme="dark"] body [class*="muted"],
+html[data-theme="dark"] body [class*="Muted"],
+html[data-theme="dark"] body [class*="caption"],
+html[data-theme="dark"] body [class*="Caption"],
+html[data-theme="dark"] body [class*="subtitle"],
+html[data-theme="dark"] body [class*="Subtitle"],
+html[data-theme="dark"] body [class*="secondaryText"],
+html[data-theme="dark"] body [class*="secondary-text"] {
+    color: var(--aibi-readable-muted) !important;
+    opacity: 1 !important;
+}
+
+
+/* ============================================================
+   BUSINESS BRIEF COUNTERS
+   ============================================================ */
+
+
+/*
+   Current dashboard versions have used slightly different
+   class naming while the UI evolved.
+
+   These selectors intentionally cover those known naming
+   patterns without changing normal dashboard panels.
+*/
+
+html[data-theme="dark"] body
+[class*="brief"]
+[class*="stat"],
+
+html[data-theme="dark"] body
+[class*="Brief"]
+[class*="stat"],
+
+html[data-theme="dark"] body
+[class*="brief"]
+[class*="count"],
+
+html[data-theme="dark"] body
+[class*="Brief"]
+[class*="count"],
+
+html[data-theme="dark"] body
+[class*="brief"]
+[class*="mini"],
+
+html[data-theme="dark"] body
+[class*="Brief"]
+[class*="mini"],
+
+html[data-theme="dark"] body
+[class*="brief-stat"],
+
+html[data-theme="dark"] body
+[class*="briefStat"],
+
+html[data-theme="dark"] body
+[class*="summary-stat"],
+
+html[data-theme="dark"] body
+[class*="summaryStat"] {
+    background: #e8f0ec !important;
+    border-color: #d2dfd8 !important;
+    color: #10251c !important;
+}
+
+
+/*
+   Force all nested number/label text inside those light mini
+   cards to remain dark and readable.
+*/
+
+html[data-theme="dark"] body
+[class*="brief"]
+[class*="stat"] *,
+
+html[data-theme="dark"] body
+[class*="Brief"]
+[class*="stat"] *,
+
+html[data-theme="dark"] body
+[class*="brief"]
+[class*="count"] *,
+
+html[data-theme="dark"] body
+[class*="Brief"]
+[class*="count"] *,
+
+html[data-theme="dark"] body
+[class*="brief"]
+[class*="mini"] *,
+
+html[data-theme="dark"] body
+[class*="Brief"]
+[class*="mini"] *,
+
+html[data-theme="dark"] body
+[class*="brief-stat"] *,
+
+html[data-theme="dark"] body
+[class*="briefStat"] *,
+
+html[data-theme="dark"] body
+[class*="summary-stat"] *,
+
+html[data-theme="dark"] body
+[class*="summaryStat"] * {
+    color: #10251c !important;
+    opacity: 1 !important;
+}
+
+
+/* ============================================================
+   DATA THROUGH / FRESHNESS CARD
+   ============================================================ */
+
+
+/*
+   Do not leave white text on a nearly-white freshness card
+   when dark mode is active.
+*/
+
+html[data-theme="dark"] body
+[class*="freshness"],
+
+html[data-theme="dark"] body
+[class*="Freshness"],
+
+html[data-theme="dark"] body
+[class*="data-through"],
+
+html[data-theme="dark"] body
+[class*="dataThrough"],
+
+html[data-theme="dark"] body
+[class*="date-card"],
+
+html[data-theme="dark"] body
+[class*="dateCard"] {
+    background: var(--aibi-readable-surface-2) !important;
+    border-color: var(--aibi-readable-border) !important;
+    color: var(--aibi-readable-text) !important;
+}
+
+
+html[data-theme="dark"] body
+[class*="freshness"] *,
+
+html[data-theme="dark"] body
+[class*="Freshness"] *,
+
+html[data-theme="dark"] body
+[class*="data-through"] *,
+
+html[data-theme="dark"] body
+[class*="dataThrough"] *,
+
+html[data-theme="dark"] body
+[class*="date-card"] *,
+
+html[data-theme="dark"] body
+[class*="dateCard"] * {
+    color: var(--aibi-readable-text) !important;
+    opacity: 1 !important;
+}
+
+
+/* ============================================================
+   KPI / MANAGEMENT CARD SECONDARY COPY
+   ============================================================ */
+
+html[data-theme="dark"] body
+[class*="management"]
+p,
+
+html[data-theme="dark"] body
+[class*="Management"]
+p,
+
+html[data-theme="dark"] body
+[class*="priority"]
+small,
+
+html[data-theme="dark"] body
+[class*="Priority"]
+small {
+    color: var(--aibi-readable-muted) !important;
+    opacity: 1 !important;
+}
+
+
+/* ============================================================
+   INPUTS / SELECTS
+   ============================================================ */
+
+html[data-theme="dark"] body select,
+html[data-theme="dark"] body input,
+html[data-theme="dark"] body textarea {
+    color-scheme: dark;
+}
+
+
+/* ============================================================
+   ACCESSIBLE FOCUS
+   ============================================================ */
+
+html[data-theme="dark"] body
+:is(
+    a,
+    button,
+    input,
+    select,
+    textarea
+):focus-visible {
+    outline: 2px solid #78eab2;
+    outline-offset: 2px;
+}

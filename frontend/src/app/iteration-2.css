@@ -1,0 +1,694 @@
+/* ============================================================
+   AI BUSINESS INTELLIGENCE ANALYST
+   ITERATION 2 — CLOSED-LOOP MANAGEMENT WORKFLOW
+
+   Phase 2A:
+   - Management attention
+   - Evidence posture
+   - Evidence-aware priority center
+   ============================================================ */
+
+
+/* ============================================================
+   MANAGEMENT ATTENTION COUNTERS
+   ============================================================ */
+
+.management-counts {
+    display:
+        grid;
+
+    grid-template-columns:
+        repeat(
+            3,
+            minmax(
+                0,
+                1fr
+            )
+        );
+
+    gap:
+        10px;
+
+    width:
+        100%;
+
+    max-width:
+        610px;
+}
+
+
+.management-counts > div {
+    min-width:
+        0;
+}
+
+
+.brief-focus-topline {
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        space-between;
+
+    flex-wrap:
+        wrap;
+
+    gap:
+        10px;
+}
+
+
+.brief-focus-title {
+    display:
+        block;
+
+    margin-top:
+        9px;
+}
+
+
+.brief-focus-reason {
+    margin-bottom:
+        5px;
+
+    font-weight:
+        650;
+}
+
+
+/* ============================================================
+   EVIDENCE STATUS
+   ============================================================ */
+
+.evidence-state-badge {
+    display:
+        inline-flex;
+
+    align-items:
+        center;
+
+    width:
+        fit-content;
+
+    min-height:
+        25px;
+
+    padding:
+        4px
+        9px;
+
+    border-radius:
+        999px;
+
+    font-size:
+        9px;
+
+    line-height:
+        1;
+
+    font-weight:
+        850;
+
+    letter-spacing:
+        0.45px;
+
+    text-transform:
+        uppercase;
+
+    white-space:
+        nowrap;
+}
+
+
+.evidence-state-current {
+    background:
+        #e4f5ec;
+
+    color:
+        #126441;
+
+    border:
+        1px solid
+        #b8dec9;
+}
+
+
+.evidence-state-pending {
+    background:
+        #fff3dc;
+
+    color:
+        #87570b;
+
+    border:
+        1px solid
+        #ead19e;
+}
+
+
+.evidence-state-neutral {
+    background:
+        var(--surface-soft);
+
+    color:
+        var(--muted-text);
+
+    border:
+        1px solid
+        var(--border);
+}
+
+
+/* ============================================================
+   PRIORITY CARD EVIDENCE
+   ============================================================ */
+
+.priority-status-row {
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        space-between;
+
+    flex-wrap:
+        wrap;
+
+    gap:
+        10px;
+}
+
+
+.priority-evidence-warning {
+    display:
+        flex;
+
+    flex-direction:
+        column;
+
+    gap:
+        4px;
+
+    margin-top:
+        12px;
+
+    padding:
+        11px
+        12px;
+
+    border:
+        1px solid
+        #ead19e;
+
+    border-radius:
+        9px;
+
+    background:
+        #fff8e9;
+
+    color:
+        #704908;
+
+    font-size:
+        10px;
+
+    line-height:
+        1.45;
+}
+
+
+.priority-evidence-warning strong {
+    font-size:
+        10px;
+}
+
+
+/* ============================================================
+   DECISION EVIDENCE PANEL
+   ============================================================ */
+
+.decision-evidence-panel {
+    display:
+        grid;
+
+    grid-template-columns:
+        minmax(
+            260px,
+            0.85fr
+        )
+        minmax(
+            0,
+            1.65fr
+        );
+
+    gap:
+        24px;
+
+    margin-top:
+        22px;
+
+    padding:
+        24px;
+
+    border:
+        1px solid
+        var(--border);
+
+    border-radius:
+        16px;
+
+    background:
+        var(--surface);
+}
+
+
+.decision-evidence-copy h2 {
+    margin:
+        6px
+        0
+        8px;
+
+    color:
+        var(--text);
+
+    font-size:
+        24px;
+}
+
+
+.decision-evidence-copy p {
+    max-width:
+        520px;
+
+    margin:
+        0;
+
+    color:
+        var(--muted-text);
+
+    font-size:
+        12px;
+
+    line-height:
+        1.6;
+}
+
+
+.decision-evidence-grid {
+    display:
+        grid;
+
+    grid-template-columns:
+        repeat(
+            3,
+            minmax(
+                0,
+                1fr
+            )
+        );
+
+    gap:
+        10px;
+}
+
+
+.decision-evidence-grid article {
+    display:
+        flex;
+
+    flex-direction:
+        column;
+
+    justify-content:
+        center;
+
+    min-width:
+        0;
+
+    min-height:
+        92px;
+
+    padding:
+        15px;
+
+    border:
+        1px solid
+        var(--border);
+
+    border-radius:
+        11px;
+
+    background:
+        var(--surface-soft);
+}
+
+
+.decision-evidence-grid span {
+    margin-bottom:
+        7px;
+
+    color:
+        var(--muted-text);
+
+    font-size:
+        9px;
+
+    font-weight:
+        800;
+
+    letter-spacing:
+        0.5px;
+
+    text-transform:
+        uppercase;
+}
+
+
+.decision-evidence-grid strong {
+    color:
+        var(--text);
+
+    font-size:
+        14px;
+
+    line-height:
+        1.35;
+}
+
+
+/* ============================================================
+   PRIORITY CENTER SUMMARY
+   ============================================================ */
+
+.priority-summary-grid {
+    display:
+        grid;
+
+    grid-template-columns:
+        repeat(
+            4,
+            minmax(
+                0,
+                1fr
+            )
+        );
+
+    gap:
+        12px;
+
+    margin:
+        30px
+        0
+        22px;
+}
+
+
+.priority-summary-grid article {
+    display:
+        flex;
+
+    flex-direction:
+        column;
+
+    min-height:
+        112px;
+
+    padding:
+        18px;
+
+    border:
+        1px solid
+        var(--border);
+
+    border-radius:
+        13px;
+
+    background:
+        var(--surface);
+}
+
+
+.priority-summary-grid article > span {
+    color:
+        var(--muted-text);
+
+    font-size:
+        9px;
+
+    font-weight:
+        850;
+
+    letter-spacing:
+        0.5px;
+
+    text-transform:
+        uppercase;
+}
+
+
+.priority-summary-grid article > strong {
+    margin-top:
+        8px;
+
+    color:
+        var(--text);
+
+    font-size:
+        29px;
+
+    line-height:
+        1;
+}
+
+
+.priority-summary-grid article > small {
+    margin-top:
+        auto;
+
+    padding-top:
+        10px;
+
+    color:
+        var(--muted-text);
+
+    font-size:
+        10px;
+
+    line-height:
+        1.4;
+}
+
+
+/* ============================================================
+   PRIORITY TABLE V2
+   ============================================================ */
+
+.priority-table-header-v2,
+.priority-table-row-v2 {
+    grid-template-columns:
+        105px
+        minmax(
+            230px,
+            1.5fr
+        )
+        minmax(
+            180px,
+            1.1fr
+        )
+        100px
+        110px
+        115px;
+}
+
+
+.priority-table-row-v2 {
+    align-items:
+        center;
+}
+
+
+.priority-insight-cell,
+.priority-evidence-cell {
+    display:
+        flex;
+
+    flex-direction:
+        column;
+
+    align-items:
+        flex-start;
+
+    gap:
+        5px;
+
+    min-width:
+        0;
+}
+
+
+.priority-insight-cell strong {
+    color:
+        var(--text);
+}
+
+
+.priority-insight-cell small,
+.priority-evidence-cell small {
+    color:
+        var(--muted-text);
+
+    line-height:
+        1.4;
+}
+
+
+.priority-evidence-cell small {
+    max-width:
+        250px;
+}
+
+
+/* ============================================================
+   DARK MODE
+   ============================================================ */
+
+html[data-theme="dark"]
+.evidence-state-current {
+    background:
+        #173a2b;
+
+    color:
+        #7ce8b0;
+
+    border-color:
+        #2d6349;
+}
+
+
+html[data-theme="dark"]
+.evidence-state-pending {
+    background:
+        #3b301b;
+
+    color:
+        #ffd58a;
+
+    border-color:
+        #735b2c;
+}
+
+
+html[data-theme="dark"]
+.priority-evidence-warning {
+    background:
+        #302719;
+
+    color:
+        #f5ce86;
+
+    border-color:
+        #675027;
+}
+
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (
+    max-width:
+    1080px
+) {
+
+    .priority-table-header-v2,
+    .priority-table-row-v2 {
+        grid-template-columns:
+            90px
+            minmax(
+                210px,
+                1.5fr
+            )
+            minmax(
+                170px,
+                1fr
+            )
+            85px
+            95px
+            100px;
+    }
+}
+
+
+@media (
+    max-width:
+    900px
+) {
+
+    .decision-evidence-panel {
+        grid-template-columns:
+            1fr;
+    }
+
+
+    .priority-summary-grid {
+        grid-template-columns:
+            repeat(
+                2,
+                minmax(
+                    0,
+                    1fr
+                )
+            );
+    }
+
+
+    .priority-table {
+        overflow-x:
+            auto;
+    }
+
+
+    .priority-table-header-v2,
+    .priority-table-row-v2 {
+        min-width:
+            900px;
+    }
+}
+
+
+@media (
+    max-width:
+    720px
+) {
+
+    .management-counts {
+        grid-template-columns:
+            1fr;
+    }
+
+
+    .decision-evidence-grid {
+        grid-template-columns:
+            1fr;
+    }
+
+
+    .priority-summary-grid {
+        grid-template-columns:
+            1fr;
+    }
+
+
+    .brief-focus-topline {
+        align-items:
+            flex-start;
+
+        flex-direction:
+            column;
+    }
+}

@@ -295,6 +295,65 @@ def analyze_targets(
         month_start
     )
 
+    data_available = bool(
+        rows
+    )
+
+    if not data_available:
+
+        return {
+            "status":
+                "success",
+
+            "analysis_type":
+                "target_achievement",
+
+            "month_start":
+                month_start.isoformat(),
+
+            "data_available":
+                False,
+
+            "evidence_status":
+                "INCOMPLETE",
+
+            "message":
+                (
+                    "No target rows are available for "
+                    "the requested analytical month. "
+                    "An empty target result must not be "
+                    "interpreted as target achievement or "
+                    "as evidence that a previous target "
+                    "issue has been resolved."
+                ),
+
+            "region_summary":
+                [],
+
+            "category_detail":
+                [],
+
+            "material_target_issues":
+                [],
+
+            "summary": {
+                "target_rows":
+                    0,
+
+                "regions_evaluated":
+                    0,
+
+                "regions_on_target":
+                    0,
+
+                "regions_at_risk":
+                    0,
+
+                "high_priority_misses":
+                    0,
+            },
+        }
+
     category_results = []
 
     region_aggregation = {}
@@ -583,6 +642,18 @@ def analyze_targets(
         "month_start":
             month_start.isoformat(),
 
+        "data_available":
+            True,
+
+        "evidence_status":
+            "CURRENT",
+
+        "message":
+            (
+                "Target rows are available for the "
+                "requested analytical month."
+            ),
+
         "region_summary":
             region_results,
 
@@ -593,6 +664,11 @@ def analyze_targets(
             material_misses,
 
         "summary": {
+            "target_rows":
+                len(
+                    rows
+                ),
+
             "regions_evaluated":
                 len(
                     region_results
