@@ -1,5 +1,5 @@
-{
-  "name": "AI BI - Automated Data Refresh",
+﻿{
+  "name": "AI BI - Automated Refresh & Executive Decision Brief",
   "nodes": [
     {
       "parameters": {},
@@ -10,12 +10,66 @@
         0
       ],
       "id": "ce73331a-e884-4f80-a34e-2340be9003ad",
-      "name": "When clicking ‘Execute workflow’"
+      "name": "When clicking â€˜Execute workflowâ€™"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 6
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        160
+      ],
+      "id": "1f0f1263-c6cd-44ec-81e2-0bf22bb98991",
+      "name": "Daily Executive Brief Schedule"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "config-backend-url",
+              "name": "backend_url",
+              "value": "http://127.0.0.1:8000",
+              "type": "string"
+            },
+            {
+              "id": "config-dashboard-url",
+              "name": "dashboard_url",
+              "value": "http://localhost:3000",
+              "type": "string"
+            },
+            {
+              "id": "config-recipient",
+              "name": "recipient",
+              "value": "replace-me@example.com",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        64
+      ],
+      "id": "2d7b74b9-d1fa-4e4f-a894-4bcf6a0888a1",
+      "name": "Workflow Configuration"
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "http://127.0.0.1:8000/pipeline/refresh",
+        "url": "={{ $('Workflow Configuration').first().json.backend_url.replace(/\\/+$/, '') + '/pipeline/refresh' }}",
         "options": {
           "timeout": 300000
         }
@@ -23,8 +77,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        224,
-        0
+        448,
+        64
       ],
       "id": "a1403c1e-66b2-47f2-8e33-d9b6e1ed306d",
       "name": "Refresh Active Data Sources"
@@ -57,49 +111,138 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        448,
-        0
+        672,
+        64
       ],
       "id": "cdc6f83a-a58d-4987-88c0-9d0de6b01ff5",
       "name": "Refresh Successful?"
     },
     {
       "parameters": {
-        "errorMessage": "AI BI automated data refresh failed or partially succeeded."
+        "method": "POST",
+        "url": "={{ $('Workflow Configuration').first().json.backend_url.replace(/\\/+$/, '') + '/intelligence/run' }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        896,
+        0
+      ],
+      "id": "3155a7aa-7e02-4cec-a637-6801083d4ec4",
+      "name": "Run Decision Intelligence"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Workflow Configuration').first().json.backend_url.replace(/\\/+$/, '') + '/intelligence/dashboard-summary' }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1120,
+        0
+      ],
+      "id": "cbad62f6-8508-40db-9af6-6d9480691d69",
+      "name": "Load Management Summary"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "brief-recipient",
+              "name": "recipient",
+              "value": "={{ $('Workflow Configuration').first().json.recipient }}",
+              "type": "string"
+            },
+            {
+              "id": "brief-subject",
+              "name": "subject",
+              "value": "=AI BI Decision Brief | {{ $json.data_through }} | {{ $json.brief.current_risk_count }} Risks Need Attention",
+              "type": "string"
+            },
+            {
+              "id": "brief-html",
+              "name": "html",
+              "value": "=<div style=\"background:#f4f7f5;padding:24px;font-family:Arial,Helvetica,sans-serif;color:#13231b;\"><div style=\"max-width:680px;margin:auto;background:#ffffff;border:1px solid #dfe8e2;border-radius:14px;overflow:hidden;\"><div style=\"background:#073c2c;padding:26px 30px;color:#ffffff;\"><div style=\"font-size:12px;letter-spacing:1.5px;font-weight:700;color:#b7e6cf;\">AI BUSINESS INTELLIGENCE ANALYST</div><div style=\"font-size:28px;font-weight:700;margin-top:8px;\">Executive Decision Brief</div><div style=\"font-size:14px;color:#d5eee2;margin-top:8px;\">Evidence-grounded commercial decision intelligence</div></div><div style=\"padding:28px 30px;\"><div style=\"font-size:12px;color:#66786f;text-transform:uppercase;\">DATA THROUGH</div><div style=\"font-size:16px;font-weight:700;margin-top:4px;\">{{ $json.data_through }}</div><hr style=\"border:0;border-top:1px solid #e4ece7;margin:22px 0;\"><div style=\"font-size:12px;color:#66786f;text-transform:uppercase;font-weight:700;\">MANAGEMENT ATTENTION</div><div style=\"font-size:21px;font-weight:700;line-height:1.35;margin-top:8px;\">{{ $json.brief.headline }}</div><table width=\"100%\" cellspacing=\"8\" cellpadding=\"0\" style=\"margin-top:14px;\"><tr><td style=\"background:#f2f7f4;padding:14px;border-radius:10px;\"><b style=\"font-size:24px;\">{{ $json.brief.current_risk_count }}</b><br><span style=\"font-size:11px;color:#66786f;\">CURRENT RISKS</span></td><td style=\"background:#fff7e8;padding:14px;border-radius:10px;\"><b style=\"font-size:24px;\">{{ $json.brief.evidence_blocked_risk_count }}</b><br><span style=\"font-size:11px;color:#7b5b1c;\">AWAITING EVIDENCE</span></td><td style=\"background:#f2f7f4;padding:14px;border-radius:10px;\"><b style=\"font-size:24px;\">{{ $json.brief.current_opportunity_count }}</b><br><span style=\"font-size:11px;color:#66786f;\">OPPORTUNITIES</span></td></tr></table><hr style=\"border:0;border-top:1px solid #e4ece7;margin:24px 0;\"><div style=\"font-size:12px;color:#66786f;text-transform:uppercase;font-weight:700;\">TOP MANAGEMENT PRIORITY</div><div style=\"font-size:22px;font-weight:700;margin-top:8px;\">{{ $json.brief.recommended_focus?.title || 'No current management priority' }}</div><div style=\"font-size:12px;font-weight:700;color:#126441;margin-top:8px;\">{{ $json.brief.recommended_focus?.resolution_blocked ? 'EVIDENCE PENDING' : 'EVIDENCE CURRENT' }}</div><p style=\"font-size:14px;line-height:1.6;color:#43564c;\">{{ $json.brief.recommended_focus?.reason || 'No material priority is currently available.' }}</p><div style=\"font-size:12px;color:#66786f;text-transform:uppercase;font-weight:700;margin-top:18px;\">RECOMMENDED RESPONSE</div><p style=\"font-size:14px;line-height:1.6;\">{{ $json.brief.recommended_focus?.recommended_action || 'Continue monitoring the next analytical refresh.' }}</p><hr style=\"border:0;border-top:1px solid #e4ece7;margin:24px 0;\"><div style=\"font-size:12px;color:#66786f;text-transform:uppercase;font-weight:700;\">DECISION EVIDENCE</div><p style=\"font-size:14px;line-height:1.7;\"><b>Analytical period:</b> {{ $json.current_period.start }} â€” {{ $json.current_period.end }}<br><b>Evidence posture:</b> {{ $json.evidence.status }}<br><b>Blocking datasets:</b> {{ ($json.evidence.blocking_datasets || []).join(', ') || 'None' }}</p><div style=\"background:#fff8e9;border:1px solid #eed9ab;border-radius:10px;padding:14px;color:#704908;font-size:13px;line-height:1.5;\">{{ $json.brief.evidence_blocked_risk_count }} prior issue(s) remain open because required evidence is not current. The system has not inferred resolution from missing data.</div><p style=\"margin-top:24px;\"><a href=\"{{ $('Workflow Configuration').first().json.dashboard_url }}/investigate/{{ $json.brief.recommended_focus?.insight_id || '' }}\" style=\"display:inline-block;background:#0b6b4c;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:8px;\">Open management cockpit</a></p></div><div style=\"background:#f7faf8;padding:16px 30px;color:#7a8a82;font-size:11px;border-top:1px solid #e4ece7;\">Generated automatically from deterministic business intelligence. KPI calculations remain governed by the analytics engine; this email is the management delivery layer.</div></div></div>",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1344,
+        0
+      ],
+      "id": "b892d69c-67fd-4606-b953-f6154f944212",
+      "name": "Prepare Executive Decision Brief"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.recipient }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1568,
+        0
+      ],
+      "id": "e257a230-c768-4e4e-93c3-7e6e340b7e43",
+      "name": "Send Executive Decision Brief"
+    },
+    {
+      "parameters": {
+        "errorMessage": "AI BI automated data refresh failed or partially succeeded. Executive brief was not sent."
       },
       "type": "n8n-nodes-base.stopAndError",
       "typeVersion": 1,
       "position": [
-        672,
-        96
+        896,
+        128
       ],
       "id": "ec1ba279-9a34-40f9-bc9a-008b3b5e2d74",
       "name": "Refresh Failed"
-    },
-    {
-      "parameters": {
-        "rule": {
-          "interval": [
-            {
-              "triggerAtHour": 6
-            },
-            {}
-          ]
-        }
-      },
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.3,
-      "position": [
-        144,
-        144
-      ],
-      "id": "1f0f1263-c6cd-44ec-81e2-0bf22bb98991",
-      "name": "Daily Refresh Schedule"
     }
   ],
   "pinData": {},
   "connections": {
-    "When clicking ‘Execute workflow’": {
+    "When clicking â€˜Execute workflowâ€™": {
+      "main": [
+        [
+          {
+            "node": "Workflow Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily Executive Brief Schedule": {
+      "main": [
+        [
+          {
+            "node": "Workflow Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Configuration": {
       "main": [
         [
           {
@@ -123,7 +266,13 @@
     },
     "Refresh Successful?": {
       "main": [
-        [],
+        [
+          {
+            "node": "Run Decision Intelligence",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "Refresh Failed",
@@ -133,11 +282,33 @@
         ]
       ]
     },
-    "Daily Refresh Schedule": {
+    "Run Decision Intelligence": {
       "main": [
         [
           {
-            "node": "Refresh Active Data Sources",
+            "node": "Load Management Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Management Summary": {
+      "main": [
+        [
+          {
+            "node": "Prepare Executive Decision Brief",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Executive Decision Brief": {
+      "main": [
+        [
+          {
+            "node": "Send Executive Decision Brief",
             "type": "main",
             "index": 0
           }
@@ -145,20 +316,10 @@
       ]
     }
   },
-  "active": true,
+  "active": false,
   "settings": {
     "executionOrder": "v1",
-    "binaryMode": "separate",
-    "availableInMCP": false,
-    "timeSavedMode": "fixed",
-    "timezone": "Asia/Karachi",
-    "callerPolicy": "workflowsFromSameOwner"
+    "timezone": "Asia/Karachi"
   },
-  "versionId": "60e2e3a4-7a57-4cdc-9a88-02c131655875",
-  "meta": {
-    "instanceId": "0eb4708f473d1265c461129fffdac8f98b1248fc2441ed74f0e243819db19372"
-  },
-  "nodeGroups": [],
-  "id": "M5o0AJdS3sBQRbqN",
   "tags": []
 }
